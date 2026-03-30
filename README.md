@@ -2,6 +2,8 @@
 
 A browser-based 256-color indexed pixel art editor inspired by VGA-era graphics tools. Built with vanilla JavaScript, HTML, and CSS -- no frameworks, no bundler.
 
+![Pix8 Screenshot](screenshot.png)
+
 ## Features
 
 - **256-color indexed palette** -- all 256 entries (0-255) are usable colors, transparency is a separate sentinel value
