@@ -1,0 +1,124 @@
+/* Left vertical toolbar */
+.tool-btn {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    color: var(--text);
+    cursor: pointer;
+    padding: 0;
+    position: relative;
+}
+
+.tool-btn:hover {
+    background: var(--bg-hover);
+    border-color: var(--border);
+}
+
+.tool-btn.active {
+    background: var(--accent);
+    color: var(--text-bright);
+    border-color: var(--accent);
+}
+
+.tool-btn svg {
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.tool-btn .shortcut-hint {
+    position: absolute;
+    bottom: 1px;
+    right: 2px;
+    font-size: 8px;
+    color: var(--text-dim);
+    pointer-events: none;
+}
+
+.tool-btn.active .shortcut-hint {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* Toolbar separator */
+.toolbar-sep {
+    width: 28px;
+    height: 1px;
+    background: var(--border);
+    margin: 3px 0;
+}
+
+/* Color selector at bottom of toolbar */
+#color-selector {
+    margin-top: auto;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+#color-selector-swatches {
+    position: relative;
+    width: 36px;
+    height: 36px;
+}
+
+#color-bg-swatch {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 24px;
+    height: 24px;
+    border: 2px solid var(--border-light);
+    cursor: pointer;
+}
+
+#color-fg-swatch {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 24px;
+    height: 24px;
+    border: 2px solid var(--text);
+    cursor: pointer;
+    z-index: 1;
+}
+
+#color-swap-btn {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 14px;
+    height: 14px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+    padding: 0;
+}
+
+#color-swap-btn:hover {
+    color: var(--text);
+    background: var(--bg-hover);
+}
+
+#color-index-label {
+    font-size: 10px;
+    color: var(--text-dim);
+    text-align: center;
+}

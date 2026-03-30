@@ -1,0 +1,35 @@
+/* Center work area canvas */
+#canvas-area canvas {
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    -ms-interpolation-mode: nearest-neighbor;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+#work-canvas {
+    z-index: 1;
+}
+
+#overlay-canvas {
+    z-index: 2;
+    pointer-events: none;
+}
+
+#grid-canvas {
+    z-index: 3;
+    pointer-events: none;
+}
+
+/* Checkerboard transparency background */
+#canvas-area .checkerboard {
+    position: absolute;
+    z-index: 0;
+    background-image:
+        linear-gradient(45deg, var(--checkerboard-dark) 25%, transparent 25%),
+        linear-gradient(-45deg, var(--checkerboard-dark) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, var(--checkerboard-dark) 75%),
+        linear-gradient(-45deg, transparent 75%, var(--checkerboard-dark) 75%);
+    background-color: var(--checkerboard-light);
+}

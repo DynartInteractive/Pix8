@@ -1,0 +1,544 @@
+import { EventBus } from './EventBus.js';
+import { ImageDocument } from './model/ImageDocument.js';
+import { Brush } from './model/Brush.js';
+import { DEFAULT_DOC_WIDTH, DEFAULT_DOC_HEIGHT, ZOOM_LEVELS } from './constants.js';
+
+import { CanvasView } from './ui/CanvasView.js';
+import { Toolbar } from './ui/Toolbar.js';
+import { ColorSelector } from './ui/ColorSelector.js';
+import { PalettePanel } from './ui/PalettePanel.js';
+import { LayersPanel } from './ui/LayersPanel.js';
+
+import { UndoManager } from './history/UndoManager.js';
+
+import { BrushTool } from './tools/BrushTool.js';
+import { LineTool } from './tools/LineTool.js';
+import { RectTool } from './tools/RectTool.js';
+import { FilledRectTool } from './tools/FilledRectTool.js';
+import { EllipseTool } from './tools/EllipseTool.js';
+import { FilledEllipseTool } from './tools/FilledEllipseTool.js';
+import { RectBrushSelector } from './tools/RectBrushSelector.js';
+import { CircleBrushSelector } from './tools/CircleBrushSelector.js';
+import { PolyBrushSelector } from './tools/PolyBrushSelector.js';
+import { EraserTool } from './tools/EraserTool.js';
+import { ColorPickerTool } from './tools/ColorPickerTool.js';
+
+import {
+    savePix8, loadPix8,
+    exportBMP, importBMP,
+    exportPCX, importPCX,
+    exportPNG, downloadBlob
+} from './util/io.js';
+
+class App {
+    constructor() {
+        this.bus = new EventBus();
+        this.doc = null;
+        this.canvasView = null;
+        this.toolbar = null;
+        this.undoManager = null;
+
+        this._showNewDocDialog();
+    }
+
+    _showNewDocDialog() {
+        // Simple modal dialog for new document
+        const overlay = document.createElement('div');
+        overlay.style.cssText = `
+            position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+            display: flex; align-items: center; justify-content: center; z-index: 1000;
+        `;
+
+        const dialog = document.createElement('div');
+        dialog.style.cssText = `
+            background: var(--bg-panel, #2d2d30); border: 1px solid var(--border, #3c3c3c);
+            border-radius: 6px; padding: 24px; min-width: 300px; color: var(--text, #ccc);
+        `;
+
+        dialog.innerHTML = `
+            <h3 style="margin: 0 0 16px 0; font-size: 16px; color: #fff;">New Document</h3>
+            <div style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 12px; margin-bottom: 4px; color: #aaa;">Width (px)</label>
+                <input id="new-doc-w" type="number" value="64" min="1" max="1024"
+                    style="width: 100%; padding: 6px; background: #3c3c3c; border: 1px solid #555;
+                    border-radius: 3px; color: #ccc; font-size: 13px;">
+            </div>
+            <div style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 12px; margin-bottom: 4px; color: #aaa;">Height (px)</label>
+                <input id="new-doc-h" type="number" value="64" min="1" max="1024"
+                    style="width: 100%; padding: 6px; background: #3c3c3c; border: 1px solid #555;
+                    border-radius: 3px; color: #ccc; font-size: 13px;">
+            </div>
+            <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                <button class="preset-btn" data-w="32" data-h="32" style="flex:1; padding: 6px; background: #3c3c3c; border: 1px solid #555; border-radius: 3px; color: #ccc; cursor: pointer;">32x32</button>
+                <button class="preset-btn" data-w="64" data-h="64" style="flex:1; padding: 6px; background: #3c3c3c; border: 1px solid #555; border-radius: 3px; color: #ccc; cursor: pointer;">64x64</button>
+                <button class="preset-btn" data-w="128" data-h="128" style="flex:1; padding: 6px; background: #3c3c3c; border: 1px solid #555; border-radius: 3px; color: #ccc; cursor: pointer;">128x128</button>
+                <button class="preset-btn" data-w="256" data-h="256" style="flex:1; padding: 6px; background: #3c3c3c; border: 1px solid #555; border-radius: 3px; color: #ccc; cursor: pointer;">256x256</button>
+            </div>
+            <button id="new-doc-ok" style="width: 100%; padding: 8px; background: #007acc;
+                border: none; border-radius: 3px; color: #fff; cursor: pointer; font-size: 13px;">Create</button>
+        `;
+
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+
+        const wInput = dialog.querySelector('#new-doc-w');
+        const hInput = dialog.querySelector('#new-doc-h');
+
+        for (const btn of dialog.querySelectorAll('.preset-btn')) {
+            btn.addEventListener('click', () => {
+                wInput.value = btn.dataset.w;
+                hInput.value = btn.dataset.h;
+            });
+        }
+
+        dialog.querySelector('#new-doc-ok').addEventListener('click', () => {
+            const w = Math.max(1, Math.min(1024, parseInt(wInput.value) || 64));
+            const h = Math.max(1, Math.min(1024, parseInt(hInput.value) || 64));
+            overlay.remove();
+            this._init(w, h);
+        });
+
+        // Allow Enter to submit
+        dialog.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                dialog.querySelector('#new-doc-ok').click();
+            }
+        });
+
+        wInput.focus();
+        wInput.select();
+    }
+
+    _init(width, height) {
+        this.doc = new ImageDocument(width, height);
+        this.undoManager = new UndoManager(this.doc, this.bus);
+
+        // Canvas view
+        this.canvasView = new CanvasView(this.doc, this.bus);
+
+        // Tools
+        const tools = [
+            new BrushTool(this.doc, this.bus, this.canvasView),
+            new EraserTool(this.doc, this.bus, this.canvasView),
+            new ColorPickerTool(this.doc, this.bus, this.canvasView),
+            new LineTool(this.doc, this.bus, this.canvasView),
+            new RectTool(this.doc, this.bus, this.canvasView),
+            new FilledRectTool(this.doc, this.bus, this.canvasView),
+            new EllipseTool(this.doc, this.bus, this.canvasView),
+            new FilledEllipseTool(this.doc, this.bus, this.canvasView),
+            new RectBrushSelector(this.doc, this.bus, this.canvasView),
+            new CircleBrushSelector(this.doc, this.bus, this.canvasView),
+            new PolyBrushSelector(this.doc, this.bus, this.canvasView),
+        ];
+
+        // Toolbar
+        this.toolbar = new Toolbar(tools, this.bus);
+        this.toolbar.setActiveTool('Brush');
+
+        // Wire active tool to canvas view
+        this.bus.on('tool-changed', (tool) => {
+            this.canvasView.activeTool = tool;
+            document.getElementById('status-tool').textContent = tool.name;
+        });
+
+        // UI panels
+        this.colorSelector = new ColorSelector(this.doc, this.bus);
+        this.palettePanel = new PalettePanel(this.doc, this.bus);
+        this.layersPanel = new LayersPanel(this.doc, this.bus);
+
+        // Undo integration: wrap tool pointer events
+        this._wrapUndoIntoCanvasView();
+
+        // Status bar updates
+        this.bus.on('cursor-move', (pos) => {
+            document.getElementById('status-pos').textContent = `${pos.x}, ${pos.y}`;
+        });
+        this.bus.on('zoom-changed', (zoom) => {
+            document.getElementById('status-zoom').textContent = `${zoom * 100}%`;
+        });
+        document.getElementById('status-size').textContent = `${width} x ${height}`;
+        document.getElementById('status-zoom').textContent = `${this.canvasView.zoom * 100}%`;
+
+        // Re-render on palette/layer changes
+        this.bus.on('palette-changed', () => this.canvasView.render());
+        this.bus.on('layer-changed', () => this.canvasView.render());
+        this.bus.on('document-changed', () => this.canvasView.render());
+
+        // Keyboard shortcuts
+        this._setupKeyboardShortcuts(tools);
+
+        // Menu bar
+        this._setupMenuBar();
+    }
+
+    _wrapUndoIntoCanvasView() {
+        const cv = this.canvasView;
+        const origDown = cv._onPointerDown;
+        const origUp = cv._onPointerUp;
+
+        // The event listeners in CanvasView use arrow functions that call
+        // this._onPointerDown(e) — so replacing the method on the instance works.
+        cv._onPointerDown = (e) => {
+            if (e.button === 0 && !cv._spaceDown && cv._activeTool) {
+                this.undoManager.beginOperation();
+            }
+            origDown.call(cv, e);
+        };
+
+        cv._onPointerUp = (e) => {
+            origUp.call(cv, e);
+            this.undoManager.endOperation();
+        };
+    }
+
+    _setupKeyboardShortcuts(tools) {
+        const shortcutMap = {};
+        for (const tool of tools) {
+            if (tool.shortcut && tool.shortcut.length === 1) {
+                shortcutMap[tool.shortcut.toLowerCase()] = tool.name;
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            // Don't handle if typing in an input
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+            // Tool shortcuts
+            if (!e.ctrlKey && !e.altKey && !e.metaKey) {
+                const toolName = shortcutMap[e.key.toLowerCase()];
+                if (toolName) {
+                    this.bus.emit('switch-tool', toolName);
+                    return;
+                }
+
+                // X = swap colors
+                if (e.key.toLowerCase() === 'x') {
+                    this.doc.swapColors();
+                    this.bus.emit('fg-color-changed');
+                    this.bus.emit('bg-color-changed');
+                    return;
+                }
+
+                // +/= zoom in, - zoom out
+                if (e.key === '=' || e.key === '+') {
+                    this._zoomStep(1);
+                    return;
+                }
+                if (e.key === '-') {
+                    this._zoomStep(-1);
+                    return;
+                }
+
+                // Delete = clear active layer
+                if (e.key === 'Delete') {
+                    this.undoManager.beginOperation();
+                    this.doc.getActiveLayer().clear();
+                    this.undoManager.endOperation();
+                    this.bus.emit('layer-changed');
+                    return;
+                }
+
+                // 1 = reset brush to default
+                if (e.key === '1') {
+                    this.doc.activeBrush = Brush.default();
+                    this.bus.emit('brush-changed');
+                    return;
+                }
+            }
+
+            // Ctrl+Z = undo
+            if (e.ctrlKey && !e.shiftKey && e.key === 'z') {
+                this.undoManager.undo();
+                e.preventDefault();
+                return;
+            }
+
+            // Ctrl+Shift+Z or Ctrl+Y = redo
+            if ((e.ctrlKey && e.shiftKey && e.key === 'Z') ||
+                (e.ctrlKey && e.key === 'y')) {
+                this.undoManager.redo();
+                e.preventDefault();
+                return;
+            }
+
+            // Ctrl+S = save project
+            if (e.ctrlKey && e.key === 's') {
+                e.preventDefault();
+                this._saveProject();
+                return;
+            }
+
+            // Ctrl+O = open file
+            if (e.ctrlKey && e.key === 'o') {
+                e.preventDefault();
+                this._openFile();
+                return;
+            }
+        });
+    }
+
+    _zoomStep(dir) {
+        const cv = this.canvasView;
+        const cw = cv.container.clientWidth;
+        const ch = cv.container.clientHeight;
+        const centerDocX = (cw / 2 - cv.panX) / cv.zoom;
+        const centerDocY = (ch / 2 - cv.panY) / cv.zoom;
+
+        cv.zoomIndex = Math.max(0, Math.min(ZOOM_LEVELS.length - 1, cv.zoomIndex + dir));
+        cv.zoom = ZOOM_LEVELS[cv.zoomIndex];
+
+        cv.panX = Math.round(cw / 2 - centerDocX * cv.zoom);
+        cv.panY = Math.round(ch / 2 - centerDocY * cv.zoom);
+
+        this.bus.emit('zoom-changed', cv.zoom);
+        cv.render();
+    }
+
+    _setupMenuBar() {
+        const menuItems = document.querySelectorAll('#menubar .menu-item');
+        for (const item of menuItems) {
+            item.addEventListener('click', () => {
+                const menu = item.dataset.menu;
+                this._handleMenu(menu);
+            });
+        }
+    }
+
+    _handleMenu(menu) {
+        switch (menu) {
+            case 'file':
+                this._showFileMenu();
+                break;
+            case 'edit':
+                this._showEditMenu();
+                break;
+            case 'view':
+                this._showViewMenu();
+                break;
+            case 'image':
+                this._showImageMenu();
+                break;
+        }
+    }
+
+    _showDropdown(anchorEl, items) {
+        // Remove any existing dropdown
+        document.querySelectorAll('.dropdown-menu').forEach(d => d.remove());
+
+        const dropdown = document.createElement('div');
+        dropdown.className = 'dropdown-menu';
+        dropdown.style.cssText = `
+            position: fixed; background: #2d2d30; border: 1px solid #555;
+            border-radius: 4px; padding: 4px 0; min-width: 180px; z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        `;
+
+        const rect = anchorEl.getBoundingClientRect();
+        dropdown.style.left = rect.left + 'px';
+        dropdown.style.top = rect.bottom + 'px';
+
+        for (const item of items) {
+            if (item === '-') {
+                const sep = document.createElement('div');
+                sep.style.cssText = 'height: 1px; background: #555; margin: 4px 8px;';
+                dropdown.appendChild(sep);
+                continue;
+            }
+
+            const el = document.createElement('div');
+            el.style.cssText = `
+                padding: 6px 16px; cursor: pointer; font-size: 12px; color: #ccc;
+                display: flex; justify-content: space-between;
+            `;
+            el.innerHTML = `<span>${item.label}</span>${item.shortcut ? `<span style="color:#888; margin-left:24px">${item.shortcut}</span>` : ''}`;
+            el.addEventListener('mouseenter', () => { el.style.background = '#007acc'; });
+            el.addEventListener('mouseleave', () => { el.style.background = 'none'; });
+            el.addEventListener('click', () => {
+                dropdown.remove();
+                item.action();
+            });
+            dropdown.appendChild(el);
+        }
+
+        document.body.appendChild(dropdown);
+
+        // Close on click outside
+        const close = (e) => {
+            if (!dropdown.contains(e.target)) {
+                dropdown.remove();
+                document.removeEventListener('pointerdown', close);
+            }
+        };
+        setTimeout(() => document.addEventListener('pointerdown', close), 0);
+    }
+
+    _showFileMenu() {
+        const anchor = document.querySelector('[data-menu="file"]');
+        this._showDropdown(anchor, [
+            { label: 'New...', shortcut: '', action: () => { location.reload(); } },
+            { label: 'Open...', shortcut: 'Ctrl+O', action: () => this._openFile() },
+            '-',
+            { label: 'Save Project (.pix8)', shortcut: 'Ctrl+S', action: () => this._saveProject() },
+            '-',
+            { label: 'Import BMP...', action: () => this._importFile('bmp') },
+            { label: 'Import PCX...', action: () => this._importFile('pcx') },
+            '-',
+            { label: 'Export BMP', action: () => this._exportBMP() },
+            { label: 'Export PCX', action: () => this._exportPCX() },
+            { label: 'Export PNG', action: () => this._exportPNG() },
+        ]);
+    }
+
+    _showEditMenu() {
+        const anchor = document.querySelector('[data-menu="edit"]');
+        this._showDropdown(anchor, [
+            { label: 'Undo', shortcut: 'Ctrl+Z', action: () => this.undoManager.undo() },
+            { label: 'Redo', shortcut: 'Ctrl+Shift+Z', action: () => this.undoManager.redo() },
+            '-',
+            { label: 'Clear Layer', shortcut: 'Delete', action: () => {
+                this.undoManager.beginOperation();
+                this.doc.getActiveLayer().clear();
+                this.undoManager.endOperation();
+                this.bus.emit('layer-changed');
+            }},
+        ]);
+    }
+
+    _showViewMenu() {
+        const anchor = document.querySelector('[data-menu="view"]');
+        this._showDropdown(anchor, [
+            { label: 'Zoom In', shortcut: '+', action: () => this._zoomStep(1) },
+            { label: 'Zoom Out', shortcut: '-', action: () => this._zoomStep(-1) },
+            '-',
+            { label: 'Reset Zoom', action: () => {
+                this.canvasView.zoomIndex = 2;
+                this.canvasView.zoom = ZOOM_LEVELS[2];
+                this.canvasView._centerDocument();
+                this.bus.emit('zoom-changed', this.canvasView.zoom);
+                this.canvasView.render();
+            }},
+        ]);
+    }
+
+    _showImageMenu() {
+        const anchor = document.querySelector('[data-menu="image"]');
+        this._showDropdown(anchor, [
+            { label: 'Flatten Image', action: () => {
+                const flat = this.doc.flattenToLayer();
+                this.doc.layers = [flat];
+                this.doc.activeLayerIndex = 0;
+                this.bus.emit('layer-changed');
+                this.bus.emit('document-changed');
+            }},
+            { label: 'Reset Brush', shortcut: '1', action: () => {
+                this.doc.activeBrush = Brush.default();
+                this.bus.emit('brush-changed');
+            }},
+        ]);
+    }
+
+    _saveProject() {
+        const blob = savePix8(this.doc);
+        downloadBlob(blob, 'untitled.pix8');
+    }
+
+    _openFile() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.pix8,.bmp,.pcx';
+        input.addEventListener('change', () => {
+            const file = input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+                try {
+                    let newDoc;
+                    const ext = file.name.split('.').pop().toLowerCase();
+                    if (ext === 'pix8') {
+                        newDoc = loadPix8(reader.result);
+                    } else if (ext === 'bmp') {
+                        newDoc = importBMP(reader.result);
+                    } else if (ext === 'pcx') {
+                        newDoc = importPCX(reader.result);
+                    } else {
+                        alert('Unsupported file format');
+                        return;
+                    }
+                    // Replace current doc — simplest approach: reload the app
+                    this._replaceDocument(newDoc);
+                } catch (err) {
+                    alert('Error loading file: ' + err.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        });
+        input.click();
+    }
+
+    _replaceDocument(newDoc) {
+        this.doc.width = newDoc.width;
+        this.doc.height = newDoc.height;
+        this.doc.layers = newDoc.layers;
+        this.doc.activeLayerIndex = newDoc.activeLayerIndex;
+        this.doc.palette = newDoc.palette;
+        this.doc.fgColorIndex = newDoc.fgColorIndex;
+        this.doc.bgColorIndex = newDoc.bgColorIndex;
+
+        // Recreate offscreen canvas
+        this.canvasView.offscreen.width = newDoc.width;
+        this.canvasView.offscreen.height = newDoc.height;
+        this.canvasView.renderer = new (this.canvasView.renderer.constructor)(this.doc);
+        this.canvasView._centerDocument();
+
+        document.getElementById('status-size').textContent = `${newDoc.width} x ${newDoc.height}`;
+
+        this.undoManager.undoStack = [];
+        this.undoManager.redoStack = [];
+
+        this.bus.emit('palette-changed');
+        this.bus.emit('fg-color-changed');
+        this.bus.emit('bg-color-changed');
+        this.bus.emit('layer-changed');
+        this.bus.emit('document-changed');
+    }
+
+    _importFile(type) {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = type === 'bmp' ? '.bmp' : '.pcx';
+        input.addEventListener('change', () => {
+            const file = input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+                try {
+                    const newDoc = type === 'bmp' ? importBMP(reader.result) : importPCX(reader.result);
+                    this._replaceDocument(newDoc);
+                } catch (err) {
+                    alert('Error importing file: ' + err.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        });
+        input.click();
+    }
+
+    _exportBMP() {
+        const blob = exportBMP(this.doc);
+        downloadBlob(blob, 'export.bmp');
+    }
+
+    _exportPCX() {
+        const blob = exportPCX(this.doc);
+        downloadBlob(blob, 'export.pcx');
+    }
+
+    async _exportPNG() {
+        const blob = await exportPNG(this.doc, this.canvasView.renderer);
+        downloadBlob(blob, 'export.png');
+    }
+}
+
+// Boot
+const app = new App();

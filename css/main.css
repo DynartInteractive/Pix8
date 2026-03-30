@@ -1,0 +1,181 @@
+:root {
+    --bg-primary: #1e1e1e;
+    --bg-secondary: #252526;
+    --bg-panel: #2d2d30;
+    --bg-input: #3c3c3c;
+    --bg-hover: #404040;
+    --border: #3c3c3c;
+    --border-light: #555555;
+    --text: #cccccc;
+    --text-dim: #808080;
+    --text-bright: #ffffff;
+    --accent: #007acc;
+    --accent-hover: #1a8ad4;
+    --danger: #cc3333;
+    --swatch-border: #555555;
+    --checkerboard-light: #3a3a3a;
+    --checkerboard-dark: #2a2a2a;
+}
+
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg-primary);
+    color: var(--text);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 13px;
+    min-width: 1200px;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+#app {
+    display: grid;
+    grid-template-columns: 48px 1fr 280px;
+    grid-template-rows: auto 1fr auto;
+    grid-template-areas:
+        "menubar menubar menubar"
+        "toolbar canvas   rightpanel"
+        "toolbar statusbar statusbar";
+    width: 100%;
+    height: 100%;
+}
+
+/* Menu bar */
+#menubar {
+    grid-area: menubar;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    height: 28px;
+    gap: 2px;
+}
+
+#menubar .menu-item {
+    padding: 4px 10px;
+    cursor: pointer;
+    border-radius: 3px;
+    font-size: 12px;
+}
+
+#menubar .menu-item:hover {
+    background: var(--bg-hover);
+}
+
+/* Left toolbar area */
+#toolbar-area {
+    grid-area: toolbar;
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 4px 0;
+    gap: 2px;
+}
+
+/* Center canvas area */
+#canvas-area {
+    grid-area: canvas;
+    background: var(--bg-primary);
+    overflow: hidden;
+    position: relative;
+    cursor: crosshair;
+}
+
+/* Right panel (layers + palette) */
+#right-panel {
+    grid-area: rightpanel;
+    background: var(--bg-secondary);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+}
+
+/* Status bar */
+#statusbar {
+    grid-area: statusbar;
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    height: 24px;
+    font-size: 11px;
+    color: var(--text-dim);
+    gap: 16px;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--bg-input);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--border-light);
+}
+
+/* Panel section headers */
+.panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-dim);
+}
+
+.panel-header .panel-actions {
+    display: flex;
+    gap: 4px;
+}
+
+/* Generic small icon button */
+.icon-btn {
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    color: var(--text);
+    cursor: pointer;
+    padding: 0;
+    font-size: 12px;
+}
+
+.icon-btn:hover {
+    background: var(--bg-hover);
+    border-color: var(--border);
+}
+
+.icon-btn.active {
+    background: var(--accent);
+    color: var(--text-bright);
+}

@@ -1,0 +1,11 @@
+{
+  "name": "pix8",
+  "version": "0.1.0",
+  "description": "256-color indexed pixel art editor",
+  "scripts": {
+    "start": "npx serve ."
+  },
+  "devDependencies": {
+    "serve": "^14.2.0"
+  }
+}

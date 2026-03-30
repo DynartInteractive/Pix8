@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pix8 — Indexed Color Pixel Art Editor</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/toolbar.css">
+    <link rel="stylesheet" href="css/canvas-area.css">
+    <link rel="stylesheet" href="css/layers-panel.css">
+    <link rel="stylesheet" href="css/palette-panel.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Menu Bar -->
+        <div id="menubar">
+            <div class="menu-item" data-menu="file">File</div>
+            <div class="menu-item" data-menu="edit">Edit</div>
+            <div class="menu-item" data-menu="view">View</div>
+            <div class="menu-item" data-menu="image">Image</div>
+        </div>
+
+        <!-- Left Toolbar -->
+        <div id="toolbar-area">
+            <!-- Tool buttons injected by Toolbar.js -->
+
+            <!-- Color selector at bottom -->
+            <div id="color-selector">
+                <div id="color-selector-swatches">
+                    <div id="color-fg-swatch" title="Foreground color"></div>
+                    <div id="color-bg-swatch" title="Background color"></div>
+                    <button id="color-swap-btn" title="Swap colors (X)">&#x21C4;</button>
+                </div>
+                <div id="color-index-label">FG:1 BG:0</div>
+            </div>
+        </div>
+
+        <!-- Center Canvas Area -->
+        <div id="canvas-area">
+            <div class="checkerboard" id="checkerboard"></div>
+            <canvas id="work-canvas"></canvas>
+            <canvas id="overlay-canvas"></canvas>
+            <canvas id="grid-canvas"></canvas>
+        </div>
+
+        <!-- Right Panel -->
+        <div id="right-panel">
+            <!-- Layers Panel -->
+            <div id="layers-panel">
+                <div class="panel-header">
+                    <span>Layers</span>
+                    <div class="panel-actions" id="layers-actions">
+                        <button class="icon-btn" id="layer-add-btn" title="Add layer">+</button>
+                        <button class="icon-btn" id="layer-del-btn" title="Delete layer">&minus;</button>
+                        <button class="icon-btn" id="layer-up-btn" title="Move up">&uarr;</button>
+                        <button class="icon-btn" id="layer-down-btn" title="Move down">&darr;</button>
+                        <button class="icon-btn" id="layer-dup-btn" title="Duplicate">&#x2750;</button>
+                    </div>
+                </div>
+                <div id="layers-list">
+                    <!-- Layer items injected by LayersPanel.js -->
+                </div>
+            </div>
+
+            <!-- Palette Panel -->
+            <div id="palette-panel">
+                <div class="panel-header">
+                    <span>Palette</span>
+                </div>
+                <div id="palette-grid">
+                    <!-- 256 swatches injected by PalettePanel.js -->
+                </div>
+                <div id="palette-editor">
+                    <div id="palette-editor-index">Index: 0</div>
+                    <div id="palette-editor-preview"></div>
+                    <div class="editor-row">
+                        <label>R</label>
+                        <input type="range" id="pal-r" min="0" max="255" value="0">
+                        <input type="number" id="pal-r-num" min="0" max="255" value="0">
+                    </div>
+                    <div class="editor-row">
+                        <label>G</label>
+                        <input type="range" id="pal-g" min="0" max="255" value="0">
+                        <input type="number" id="pal-g-num" min="0" max="255" value="0">
+                    </div>
+                    <div class="editor-row">
+                        <label>B</label>
+                        <input type="range" id="pal-b" min="0" max="255" value="0">
+                        <input type="number" id="pal-b-num" min="0" max="255" value="0">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status Bar -->
+        <div id="statusbar">
+            <span id="status-pos">0, 0</span>
+            <span id="status-zoom">100%</span>
+            <span id="status-size">64 x 64</span>
+            <span id="status-tool">Brush</span>
+        </div>
+    </div>
+
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>
