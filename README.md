@@ -5,14 +5,17 @@ A browser-based 256-color indexed pixel art editor inspired by VGA-era graphics 
 ## Features
 
 - **256-color indexed palette** -- all 256 entries (0-255) are usable colors, transparency is a separate sentinel value
-- **Photoshop-like layout** -- toolbar on the left, canvas in the center, layers and palette on the right
+- **Photoshop-like layout** -- toolbar with flyout groups on the left, canvas in the center, layers and palette on the right
 - **Pixel-perfect zoom** -- nearest-neighbor interpolation at all zoom levels (1x-32x), pixel grid overlay at 8x+
-- **Layers** -- add, delete, reorder, duplicate, toggle visibility, rename
+- **Independent layers** -- each layer has its own size and position, auto-extends when drawing outside bounds
+- **Layer operations** -- add, delete, reorder, duplicate, toggle visibility, rename, move
 - **Drawing tools** -- Brush, Eraser, Color Picker, Line, Rectangle, Filled Rectangle, Ellipse, Filled Ellipse
+- **Move tool** -- reposition layers freely within the document
 - **Brush capture** -- select a rectangular, circular, or polygon region from the canvas to use as a custom brush stamp
 - **Palette editor** -- click to select FG/BG color, double-click to edit RGB values, full 16x16 swatch grid
-- **Undo/Redo** -- Ctrl+Z / Ctrl+Shift+Z, 50-step history
+- **Undo/Redo** -- Ctrl+Z / Ctrl+Shift+Z, 50-step history (includes layer geometry changes)
 - **File I/O** -- save/load `.pix8` projects, import/export 8-bit BMP and PCX, export PNG
+- **Import options** -- import image, import as layer, import palette only, optional index 0 transparency
 - **Dark theme** -- desktop only, minimum 1200px width
 
 ## Getting Started
@@ -46,6 +49,8 @@ Then open http://localhost:3000 in your browser.
 | Ctrl+S | Save project |
 | Ctrl+O | Open file |
 
+Shortcuts follow Photoshop conventions where applicable (V, B, E, I).
+
 ## Project Structure
 
 ```
@@ -66,6 +71,7 @@ index.html         Single-page entry point
 ## Technical Notes
 
 - All pixel data is stored as `Uint16Array` with values 0-255 for palette indices and 256 for transparent pixels
+- Layers are independently sized and positioned -- drawing outside bounds auto-extends with 16px growth padding
 - Rendering composites layers bottom-to-top via palette lookup into RGBA `ImageData`, drawn with `imageSmoothingEnabled = false`
 - BMP and PCX formats natively support 8-bit indexed color, so import/export preserves exact palette indices
 - No build step -- uses ES modules loaded directly by the browser

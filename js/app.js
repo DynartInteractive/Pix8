@@ -415,7 +415,7 @@ class App {
             { label: 'Zoom Out', shortcut: '-', action: () => this._zoomStep(-1) },
             '-',
             { label: 'Reset Zoom', action: () => {
-                this.canvasView.zoomIndex = 2;
+                this.canvasView.zoomIndex = 3;
                 this.canvasView.zoom = ZOOM_LEVELS[2];
                 this.canvasView._centerDocument();
                 this.bus.emit('zoom-changed', this.canvasView.zoom);
