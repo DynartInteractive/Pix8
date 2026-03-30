@@ -23,12 +23,18 @@ export class BaseTool {
         const ox = brush.originX;
         const oy = brush.originY;
 
+        // Pre-extend layer to cover the full brush footprint
+        layer.ensureRect(
+            x - ox, y - oy,
+            x - ox + brush.width - 1, y - oy + brush.height - 1
+        );
+
         for (let by = 0; by < brush.height; by++) {
             for (let bx = 0; bx < brush.width; bx++) {
                 const idx = brush.data[by * brush.width + bx];
-                if (idx === TRANSPARENT) continue; // transparent cell in brush
+                if (idx === TRANSPARENT) continue;
                 const colorIndex = brush.isCaptured ? idx : this.doc.fgColorIndex;
-                layer.setPixel(x + bx - ox, y + by - oy, colorIndex);
+                layer.setPixelAutoExtend(x + bx - ox, y + by - oy, colorIndex);
             }
         }
     }

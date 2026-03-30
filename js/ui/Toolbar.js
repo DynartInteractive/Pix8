@@ -18,7 +18,7 @@ export class Toolbar {
         const colorSelector = document.getElementById('color-selector');
 
         // Group: Drawing tools
-        const drawingTools = ['Brush', 'Eraser', 'Color Picker'];
+        const drawingTools = ['Move', 'Brush', 'Eraser', 'Color Picker'];
         // Group: Shape tools
         const shapeTools = ['Line', 'Rectangle', 'Filled Rect', 'Ellipse', 'Filled Ellipse'];
         // Group: Brush selectors

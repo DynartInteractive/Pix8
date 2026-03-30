@@ -7,17 +7,19 @@ Pix8 is a 256-color indexed pixel art editor for the browser. It targets VGA-era
 ## Architecture
 
 - **Data model** (`js/model/`): `ImageDocument` owns `Layer[]`, `Palette`, `Brush`, FG/BG color indices. Layers store pixel data as `Uint16Array` (0-255 = palette index, 256 = TRANSPARENT sentinel). One palette per document, shared by all layers.
-- **Rendering** (`js/render/`): `Renderer.composite()` iterates visible layers bottom-to-top, resolves palette indices to RGBA `ImageData`. Drawn to an offscreen 1:1 canvas, then scaled to the visible canvas with `imageSmoothingEnabled = false`.
-- **Tools** (`js/tools/`): All extend `BaseTool` which provides `stampBrush()`. Tools receive document-space coordinates from `CanvasView`. Brush selector tools capture regions as `Brush` objects and auto-switch to BrushTool.
+- **Layers are independently sized and positioned**: Each layer has its own `width`, `height`, `offsetX`, `offsetY`. Layers can be different sizes from the document. Drawing outside a layer's bounds auto-extends it (via `setPixelAutoExtend` with 16px growth padding). The document size defines the render/export viewport.
+- **Rendering** (`js/render/`): `Renderer.composite()` iterates visible layers bottom-to-top, computing the intersection of each layer's rect with the document rect, resolves palette indices to RGBA `ImageData`. Drawn to an offscreen 1:1 canvas, then scaled to the visible canvas with `imageSmoothingEnabled = false`.
+- **Tools** (`js/tools/`): All extend `BaseTool` which provides `stampBrush()`. Tools receive document-space coordinates from `CanvasView`. `stampBrush` calls `layer.ensureRect()` then `layer.setPixelAutoExtend()` to auto-grow layers. Brush selector tools capture regions as `Brush` objects and auto-switch to BrushTool.
 - **UI** (`js/ui/`): `CanvasView` handles zoom/pan/pointer dispatch. `Toolbar`, `LayersPanel`, `PalettePanel`, `ColorSelector` manage their respective DOM sections.
 - **Communication**: `EventBus` (simple pub/sub). Key events: `layer-changed`, `palette-changed`, `fg-color-changed`, `bg-color-changed`, `brush-changed`, `tool-changed`, `zoom-changed`, `document-changed`, `cursor-move`, `switch-tool`.
-- **Undo** (`js/history/`): `UndoManager` snapshots the active layer's `Uint16Array` before each tool operation. Integrated by wrapping `CanvasView._onPointerDown/Up` in `app.js`.
-- **File I/O** (`js/util/io.js`): `.pix8` (custom binary with JSON metadata), 8-bit BMP, 8-bit PCX (RLE), PNG export. BMP/PCX export maps TRANSPARENT to index 0.
+- **Undo** (`js/history/`): `UndoManager` snapshots the active layer's data AND geometry (width, height, offsetX, offsetY) before each tool operation. Undo/redo restores both via `layer.restoreSnapshot()`. Integrated by wrapping `CanvasView._onPointerDown/Up` in `app.js`.
+- **File I/O** (`js/util/io.js`): `.pix8` (custom binary with JSON metadata including per-layer dimensions/offsets), 8-bit BMP, 8-bit PCX (RLE), PNG export. BMP/PCX export maps TRANSPARENT to index 0. "Import as Layer" brings in BMP/PCX as a new layer at native size.
 
 ## Key Conventions
 
 - **TRANSPARENT = 256** (defined in `constants.js`). All 256 palette indices (0-255) are valid colors. Never use index 0 as transparency.
 - **Uint16Array** for all pixel data (layer data, brush data) to accommodate the 256 sentinel.
+- **Document coords vs layer-local coords**: Tools work in document space. Use `layer.getPixelDoc(docX, docY)` and `layer.setPixelAutoExtend(docX, docY, val)` for document-space access. Use `layer.getPixel(x, y)` / `layer.setPixel(x, y, val)` only for layer-local access (e.g. thumbnails, internal blitting).
 - **No frameworks or bundler**. Plain ES modules with `<script type="module">`. Served by any static HTTP server.
 - **Dark theme only**, desktop only (min 1200px), fixed layout.
 - CSS uses custom properties defined in `css/main.css` (e.g. `--bg-primary`, `--accent`, `--border`).

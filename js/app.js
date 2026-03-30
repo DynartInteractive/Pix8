@@ -22,6 +22,7 @@ import { CircleBrushSelector } from './tools/CircleBrushSelector.js';
 import { PolyBrushSelector } from './tools/PolyBrushSelector.js';
 import { EraserTool } from './tools/EraserTool.js';
 import { ColorPickerTool } from './tools/ColorPickerTool.js';
+import { MoveTool } from './tools/MoveTool.js';
 
 import {
     savePix8, loadPix8,
@@ -119,6 +120,7 @@ class App {
 
         // Tools
         const tools = [
+            new MoveTool(this.doc, this.bus, this.canvasView),
             new BrushTool(this.doc, this.bus, this.canvasView),
             new EraserTool(this.doc, this.bus, this.canvasView),
             new ColorPickerTool(this.doc, this.bus, this.canvasView),
@@ -384,6 +386,9 @@ class App {
             { label: 'Import BMP...', action: () => this._importFile('bmp') },
             { label: 'Import PCX...', action: () => this._importFile('pcx') },
             '-',
+            { label: 'Import BMP as Layer...', action: () => this._importAsLayer('bmp') },
+            { label: 'Import PCX as Layer...', action: () => this._importAsLayer('pcx') },
+            '-',
             { label: 'Export BMP', action: () => this._exportBMP() },
             { label: 'Export PCX', action: () => this._exportPCX() },
             { label: 'Export PNG', action: () => this._exportPNG() },
@@ -517,6 +522,35 @@ class App {
                     this._replaceDocument(newDoc);
                 } catch (err) {
                     alert('Error importing file: ' + err.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        });
+        input.click();
+    }
+
+    _importAsLayer(type) {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = type === 'bmp' ? '.bmp' : '.pcx';
+        input.addEventListener('change', () => {
+            const file = input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+                try {
+                    const tempDoc = type === 'bmp' ? importBMP(reader.result) : importPCX(reader.result);
+                    const importedLayer = tempDoc.getActiveLayer();
+                    // Name it after the file
+                    importedLayer.name = file.name.replace(/\.[^.]+$/, '');
+                    // Insert above active layer
+                    const insertIdx = this.doc.activeLayerIndex + 1;
+                    this.doc.layers.splice(insertIdx, 0, importedLayer);
+                    this.doc.activeLayerIndex = insertIdx;
+                    this.bus.emit('layer-changed');
+                    this.bus.emit('document-changed');
+                } catch (err) {
+                    alert('Error importing as layer: ' + err.message);
                 }
             };
             reader.readAsArrayBuffer(file);

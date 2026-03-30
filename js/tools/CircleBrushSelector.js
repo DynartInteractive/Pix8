@@ -54,7 +54,7 @@ export class CircleBrushSelector extends BaseTool {
                 const py = minY + by;
                 const distSq = (px - cx) * (px - cx) + (py - cy) * (py - cy);
                 if (distSq <= r * r) {
-                    data[by * w + bx] = layer.getPixel(px, py);
+                    data[by * w + bx] = layer.getPixelDoc(px, py);
                 }
             }
         }

@@ -39,7 +39,7 @@ export class RectBrushSelector extends BaseTool {
         const data = new Uint16Array(w * h);
         for (let by = 0; by < h; by++) {
             for (let bx = 0; bx < w; bx++) {
-                data[by * w + bx] = layer.getPixel(minX + bx, minY + by);
+                data[by * w + bx] = layer.getPixelDoc(minX + bx, minY + by);
             }
         }
 

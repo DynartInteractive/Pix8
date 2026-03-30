@@ -8,30 +8,43 @@ export class Renderer {
 
     composite() {
         const { width, height, palette, layers } = this.doc;
-        const size = width * height;
 
         if (!this._imageData || this._imageData.width !== width || this._imageData.height !== height) {
             this._imageData = new ImageData(width, height);
         }
 
         const buf = this._imageData.data;
-
-        // Fill with checkerboard-like transparency indicator (handled by CSS, so just set alpha=0)
         buf.fill(0);
 
-        // Composite layers bottom-to-top
+        // Composite layers bottom-to-top, respecting per-layer offset and size
         for (const layer of layers) {
             if (!layer.visible) continue;
-            const data = layer.data;
-            for (let i = 0; i < size; i++) {
-                const colorIndex = data[i];
-                if (colorIndex === TRANSPARENT) continue;
-                const [r, g, b] = palette.getColor(colorIndex);
-                const off = i * 4;
-                buf[off] = r;
-                buf[off + 1] = g;
-                buf[off + 2] = b;
-                buf[off + 3] = 255;
+
+            // Intersection of layer rect and document rect
+            const lx0 = Math.max(0, layer.offsetX);
+            const ly0 = Math.max(0, layer.offsetY);
+            const lx1 = Math.min(width, layer.offsetX + layer.width);
+            const ly1 = Math.min(height, layer.offsetY + layer.height);
+
+            const layerData = layer.data;
+            const layerW = layer.width;
+            const layerOx = layer.offsetX;
+            const layerOy = layer.offsetY;
+
+            for (let dy = ly0; dy < ly1; dy++) {
+                const localY = dy - layerOy;
+                const localRowStart = localY * layerW - layerOx;
+                const docRowStart = dy * width;
+                for (let dx = lx0; dx < lx1; dx++) {
+                    const colorIndex = layerData[localRowStart + dx];
+                    if (colorIndex === TRANSPARENT) continue;
+                    const [r, g, b] = palette.getColor(colorIndex);
+                    const off = (docRowStart + dx) * 4;
+                    buf[off] = r;
+                    buf[off + 1] = g;
+                    buf[off + 2] = b;
+                    buf[off + 3] = 255;
+                }
             }
         }
 

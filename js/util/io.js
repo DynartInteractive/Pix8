@@ -15,6 +15,10 @@ export function savePix8(doc) {
             name: l.name,
             visible: l.visible,
             locked: l.locked,
+            width: l.width,
+            height: l.height,
+            offsetX: l.offsetX,
+            offsetY: l.offsetY,
         })),
         activeLayerIndex: doc.activeLayerIndex,
         fgColorIndex: doc.fgColorIndex,
@@ -24,24 +28,24 @@ export function savePix8(doc) {
     const metaJson = JSON.stringify(meta);
     const metaBytes = new TextEncoder().encode(metaJson);
 
-    // Total binary: 4 bytes meta length + meta + all layer data (Uint16 = 2 bytes per pixel)
-    const pixelCount = doc.width * doc.height;
-    const layerByteSize = pixelCount * 2; // Uint16Array
-    const totalSize = 4 + metaBytes.length + doc.layers.length * layerByteSize;
+    // Total binary: 4 bytes meta length + meta + all layer data (variable size, Uint16 = 2 bytes/pixel)
+    let totalLayerBytes = 0;
+    for (const layer of doc.layers) {
+        totalLayerBytes += layer.width * layer.height * 2;
+    }
+    const totalSize = 4 + metaBytes.length + totalLayerBytes;
     const buffer = new ArrayBuffer(totalSize);
     const view = new DataView(buffer);
     const bytes = new Uint8Array(buffer);
 
-    // Write meta length (4 bytes LE)
     view.setUint32(0, metaBytes.length, true);
-    // Write meta
     bytes.set(metaBytes, 4);
-    // Write layer data (Uint16Array → raw bytes)
+
     let offset = 4 + metaBytes.length;
     for (const layer of doc.layers) {
         const u8View = new Uint8Array(layer.data.buffer, layer.data.byteOffset, layer.data.byteLength);
         bytes.set(u8View, offset);
-        offset += layerByteSize;
+        offset += layer.width * layer.height * 2;
     }
 
     return new Blob([buffer], { type: 'application/octet-stream' });
@@ -64,13 +68,16 @@ export function loadPix8(arrayBuffer) {
     doc.layers = [];
 
     let offset = 4 + metaLen;
-    const pixelCount = meta.width * meta.height;
-    const layerByteSize = pixelCount * 2; // Uint16Array
     for (const layerMeta of meta.layers) {
-        const layer = new Layer(layerMeta.name, meta.width, meta.height);
+        // Per-layer dimensions (fall back to doc dimensions for old files)
+        const lw = layerMeta.width ?? meta.width;
+        const lh = layerMeta.height ?? meta.height;
+        const layer = new Layer(layerMeta.name, lw, lh);
         layer.visible = layerMeta.visible;
         layer.locked = layerMeta.locked;
-        // Copy raw bytes into the Uint16Array
+        layer.offsetX = layerMeta.offsetX ?? 0;
+        layer.offsetY = layerMeta.offsetY ?? 0;
+        const layerByteSize = lw * lh * 2;
         const u8View = new Uint8Array(layer.data.buffer, layer.data.byteOffset, layer.data.byteLength);
         u8View.set(bytes.slice(offset, offset + layerByteSize));
         offset += layerByteSize;

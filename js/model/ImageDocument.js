@@ -67,12 +67,19 @@ export class ImageDocument {
 
     flattenToLayer() {
         const flat = new Layer('Flattened', this.width, this.height);
-        // Bottom-to-top: topmost non-transparent wins
+        // Bottom-to-top: topmost non-transparent wins, respecting layer offsets
         for (const layer of this.layers) {
             if (!layer.visible) continue;
-            for (let i = 0; i < this.width * this.height; i++) {
-                if (layer.data[i] !== TRANSPARENT) {
-                    flat.data[i] = layer.data[i];
+            const lx0 = Math.max(0, layer.offsetX);
+            const ly0 = Math.max(0, layer.offsetY);
+            const lx1 = Math.min(this.width, layer.offsetX + layer.width);
+            const ly1 = Math.min(this.height, layer.offsetY + layer.height);
+            for (let dy = ly0; dy < ly1; dy++) {
+                for (let dx = lx0; dx < lx1; dx++) {
+                    const val = layer.data[(dy - layer.offsetY) * layer.width + (dx - layer.offsetX)];
+                    if (val !== TRANSPARENT) {
+                        flat.data[dy * this.width + dx] = val;
+                    }
                 }
             }
         }

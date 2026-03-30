@@ -115,7 +115,7 @@ export class PolyBrushSelector extends BaseTool {
                 const px = minX + bx;
                 const py = minY + by;
                 if (pointInPolygon(px, py, verts)) {
-                    data[by * w + bx] = layer.getPixel(px, py);
+                    data[by * w + bx] = layer.getPixelDoc(px, py);
                 }
             }
         }

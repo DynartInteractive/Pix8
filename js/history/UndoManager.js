@@ -6,6 +6,7 @@ export class UndoManager {
         this.undoStack = [];
         this.redoStack = [];
         this._snapshot = null;
+        this._snapshotGeometry = null;
         this._snapshotLayer = -1;
     }
 
@@ -15,6 +16,7 @@ export class UndoManager {
         const layer = this.doc.layers[idx];
         this._snapshotLayer = idx;
         this._snapshot = layer.snapshotData();
+        this._snapshotGeometry = layer.snapshotGeometry();
     }
 
     /** Call after a tool operation ends (on pointer up). */
@@ -24,13 +26,20 @@ export class UndoManager {
         const idx = this._snapshotLayer;
         const layer = this.doc.layers[idx];
         const afterData = layer.snapshotData();
+        const afterGeometry = layer.snapshotGeometry();
 
-        // Only push if data actually changed
+        // Check if anything changed (data or geometry)
         let changed = false;
-        for (let i = 0; i < afterData.length; i++) {
-            if (afterData[i] !== this._snapshot[i]) {
-                changed = true;
-                break;
+        const bg = this._snapshotGeometry;
+        if (bg.width !== afterGeometry.width || bg.height !== afterGeometry.height ||
+            bg.offsetX !== afterGeometry.offsetX || bg.offsetY !== afterGeometry.offsetY) {
+            changed = true;
+        } else {
+            for (let i = 0; i < afterData.length; i++) {
+                if (afterData[i] !== this._snapshot[i]) {
+                    changed = true;
+                    break;
+                }
             }
         }
 
@@ -39,18 +48,19 @@ export class UndoManager {
                 layerIndex: idx,
                 beforeData: this._snapshot,
                 afterData: afterData,
+                beforeGeometry: this._snapshotGeometry,
+                afterGeometry: afterGeometry,
             });
 
-            // Cap the stack
             if (this.undoStack.length > this.maxEntries) {
                 this.undoStack.shift();
             }
 
-            // Clear redo stack on new operation
             this.redoStack = [];
         }
 
         this._snapshot = null;
+        this._snapshotGeometry = null;
         this._snapshotLayer = -1;
     }
 
@@ -60,7 +70,7 @@ export class UndoManager {
 
         const layer = this.doc.layers[entry.layerIndex];
         if (layer) {
-            layer.restoreData(entry.beforeData);
+            layer.restoreSnapshot(entry.beforeData, entry.beforeGeometry);
             this.redoStack.push(entry);
             this.bus.emit('layer-changed');
             this.bus.emit('document-changed');
@@ -73,7 +83,7 @@ export class UndoManager {
 
         const layer = this.doc.layers[entry.layerIndex];
         if (layer) {
-            layer.restoreData(entry.afterData);
+            layer.restoreSnapshot(entry.afterData, entry.afterGeometry);
             this.undoStack.push(entry);
             this.bus.emit('layer-changed');
             this.bus.emit('document-changed');
