@@ -60,6 +60,7 @@ export class EraserTool extends BaseTool {
                 if (idx === TRANSPARENT) continue;
                 const docX = x + bx - ox;
                 const docY = y + by - oy;
+                if (this.doc.selection.active && !this.doc.selection.isSelected(docX, docY)) continue;
                 // Translate doc coords to layer-local
                 const lx = docX - layer.offsetX;
                 const ly = docY - layer.offsetY;

@@ -17,8 +17,13 @@
     pointer-events: none;
 }
 
-#grid-canvas {
+#selection-canvas {
     z-index: 3;
+    pointer-events: none;
+}
+
+#grid-canvas {
+    z-index: 4;
     pointer-events: none;
 }
 

@@ -1,14 +1,11 @@
 import { BaseTool } from './BaseTool.js';
-import { Brush } from '../model/Brush.js';
-import { pointInPolygon } from '../util/math.js';
-import { TRANSPARENT } from '../constants.js';
 
 export class PolyBrushSelector extends BaseTool {
     constructor(doc, bus, canvasView) {
         super(doc, bus, canvasView);
-        this.name = 'Poly Brush Sel';
+        this.name = 'Poly Select';
         this.shortcut = '';
-        this.icon = `<svg viewBox="0 0 20 20"><polygon points="4,16 2,8 10,2 18,8 16,16" fill="none" stroke-dasharray="2,2"/><circle cx="16" cy="4" r="2" fill="currentColor" stroke="none"/></svg>`;
+        this.icon = `<svg viewBox="0 0 20 20"><polygon points="4,16 2,8 10,2 18,8 16,16" fill="none" stroke-dasharray="2,2"/></svg>`;
         this._vertices = [];
         this._currentX = 0;
         this._currentY = 0;
@@ -36,7 +33,6 @@ export class PolyBrushSelector extends BaseTool {
         // nothing — vertices placed on pointerDown
     }
 
-    // Double-click closes the polygon (handled via rapid clicks)
     onDoubleClick() {
         if (this._vertices.length >= 3) {
             this._finalize();
@@ -89,43 +85,15 @@ export class PolyBrushSelector extends BaseTool {
 
         if (verts.length < 3) return;
 
-        const layer = this.doc.getActiveLayer();
-
-        // Bounding box
-        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-        for (const [vx, vy] of verts) {
-            if (vx < minX) minX = vx;
-            if (vy < minY) minY = vy;
-            if (vx > maxX) maxX = vx;
-            if (vy > maxY) maxY = vy;
-        }
-        minX = Math.max(0, minX);
-        minY = Math.max(0, minY);
-        maxX = Math.min(this.doc.width - 1, maxX);
-        maxY = Math.min(this.doc.height - 1, maxY);
-
-        const w = maxX - minX + 1;
-        const h = maxY - minY + 1;
-        if (w <= 0 || h <= 0) return;
-
-        const data = new Uint16Array(w * h);
-        data.fill(TRANSPARENT);
-        for (let by = 0; by < h; by++) {
-            for (let bx = 0; bx < w; bx++) {
-                const px = minX + bx;
-                const py = minY + by;
-                if (pointInPolygon(px, py, verts)) {
-                    data[by * w + bx] = layer.getPixelDoc(px, py);
-                }
-            }
+        const sel = this.doc.selection;
+        if (sel.hasFloating()) {
+            sel.commitFloating(this.doc.getActiveLayer());
         }
 
-        this.doc.activeBrush = new Brush(w, h, data, true);
-        this.bus.emit('brush-changed');
-        this.bus.emit('switch-tool', 'Brush');
+        sel.selectPolygon(verts);
+        this.bus.emit('selection-changed');
     }
 
-    // Reset state when switching away from this tool
     deactivate() {
         this._vertices = [];
         this.canvasView.clearOverlay();

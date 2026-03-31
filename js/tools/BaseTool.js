@@ -43,8 +43,11 @@ export class BaseTool {
             for (let bx = startBx; bx < endBx; bx++) {
                 const idx = brush.data[by * brush.width + bx];
                 if (idx === TRANSPARENT) continue;
+                const docX = x + bx - ox;
+                const docY = y + by - oy;
+                if (this.doc.selection.active && !this.doc.selection.isSelected(docX, docY)) continue;
                 const colorIndex = brush.isCaptured ? idx : this.doc.fgColorIndex;
-                layer.setPixelAutoExtend(x + bx - ox, y + by - oy, colorIndex);
+                layer.setPixelAutoExtend(docX, docY, colorIndex);
             }
         }
     }

@@ -1,6 +1,7 @@
 import { Layer } from './Layer.js';
 import { Palette } from './Palette.js';
 import { Brush } from './Brush.js';
+import { Selection } from './Selection.js';
 import { TRANSPARENT } from '../constants.js';
 
 export class ImageDocument {
@@ -13,6 +14,7 @@ export class ImageDocument {
         this.fgColorIndex = 15; // white in VGA palette
         this.bgColorIndex = 0;  // black
         this.activeBrush = Brush.default();
+        this.selection = new Selection(width, height);
 
         // Start with one empty layer
         this.addLayer('Background');

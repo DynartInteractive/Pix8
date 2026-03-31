@@ -32,7 +32,7 @@ export class Toolbar {
             { tools: ['Rectangle', 'Filled Rect'], label: 'Rectangle' },
             { tools: ['Ellipse', 'Filled Ellipse'], label: 'Ellipse' },
             'sep',
-            { tools: ['Rect Brush Sel', 'Circle Brush Sel', 'Poly Brush Sel'], label: 'Brush Select' },
+            { tools: ['Rect Select', 'Circle Select', 'Poly Select'], label: 'Select' },
         ];
 
         for (const item of layout) {

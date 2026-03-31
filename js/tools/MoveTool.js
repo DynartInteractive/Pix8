@@ -10,6 +10,7 @@ export class MoveTool extends BaseTool {
         this._startY = null;
         this._origOffsetX = 0;
         this._origOffsetY = 0;
+        this._movingSelection = false;
     }
 
     getCursor() {
@@ -17,8 +18,26 @@ export class MoveTool extends BaseTool {
     }
 
     onPointerDown(x, y, e) {
+        const sel = this.doc.selection;
         const layer = this.doc.getActiveLayer();
+
+        if (sel.active) {
+            // Lift pixels if not already floating
+            if (!sel.hasFloating()) {
+                sel.liftPixels(layer);
+                this.canvasView.invalidateSelectionEdges();
+                this.bus.emit('selection-changed');
+            }
+            this._movingSelection = true;
+            this._startX = x;
+            this._startY = y;
+            this._origOffsetX = sel.floating.originX;
+            this._origOffsetY = sel.floating.originY;
+            return;
+        }
+
         if (layer.locked) return;
+        this._movingSelection = false;
         this._startX = x;
         this._startY = y;
         this._origOffsetX = layer.offsetX;
@@ -27,12 +46,35 @@ export class MoveTool extends BaseTool {
 
     onPointerMove(x, y, e) {
         if (this._startX === null) return;
+
+        if (this._movingSelection) {
+            const sel = this.doc.selection;
+            if (!sel.hasFloating()) return;
+            const newX = this._origOffsetX + (x - this._startX);
+            const newY = this._origOffsetY + (y - this._startY);
+            sel.moveFloating(newX, newY);
+            this.canvasView.invalidateSelectionEdges();
+            return;
+        }
+
         const layer = this.doc.getActiveLayer();
         layer.offsetX = this._origOffsetX + (x - this._startX);
         layer.offsetY = this._origOffsetY + (y - this._startY);
     }
 
     onPointerUp(x, y, e) {
+        if (this._movingSelection) {
+            const sel = this.doc.selection;
+            // Commit if pointer released outside document bounds
+            if (x < 0 || x >= this.doc.width || y < 0 || y >= this.doc.height) {
+                if (sel.hasFloating()) {
+                    sel.commitFloating(this.doc.getActiveLayer());
+                    sel.clear();
+                    this.canvasView.invalidateSelectionEdges();
+                    this.bus.emit('selection-changed');
+                }
+            }
+        }
         this._startX = null;
         this._startY = null;
     }

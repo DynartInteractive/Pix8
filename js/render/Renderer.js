@@ -48,6 +48,28 @@ export class Renderer {
             }
         }
 
+        // Render floating selection on top
+        const sel = this.doc.selection;
+        if (sel && sel.hasFloating()) {
+            const f = sel.floating;
+            for (let fy = 0; fy < f.height; fy++) {
+                for (let fx = 0; fx < f.width; fx++) {
+                    if (!f.mask[fy * f.width + fx]) continue;
+                    const colorIndex = f.data[fy * f.width + fx];
+                    if (colorIndex === TRANSPARENT) continue;
+                    const docX = f.originX + fx;
+                    const docY = f.originY + fy;
+                    if (docX < 0 || docX >= width || docY < 0 || docY >= height) continue;
+                    const [r, g, b] = palette.getColor(colorIndex);
+                    const off = (docY * width + docX) * 4;
+                    buf[off] = r;
+                    buf[off + 1] = g;
+                    buf[off + 2] = b;
+                    buf[off + 3] = 255;
+                }
+            }
+        }
+
         return this._imageData;
     }
 }

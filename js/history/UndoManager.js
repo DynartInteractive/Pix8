@@ -68,6 +68,13 @@ export class UndoManager {
         const entry = this.undoStack.pop();
         if (!entry) return;
 
+        // Drop any floating selection before restoring
+        const sel = this.doc.selection;
+        if (sel && sel.active) {
+            sel.clear();
+            this.bus.emit('selection-changed');
+        }
+
         const layer = this.doc.layers[entry.layerIndex];
         if (layer) {
             layer.restoreSnapshot(entry.beforeData, entry.beforeGeometry);
@@ -80,6 +87,13 @@ export class UndoManager {
     redo() {
         const entry = this.redoStack.pop();
         if (!entry) return;
+
+        // Drop any floating selection before restoring
+        const sel = this.doc.selection;
+        if (sel && sel.active) {
+            sel.clear();
+            this.bus.emit('selection-changed');
+        }
 
         const layer = this.doc.layers[entry.layerIndex];
         if (layer) {

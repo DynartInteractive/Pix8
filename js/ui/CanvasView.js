@@ -10,11 +10,13 @@ export class CanvasView {
         this.container = document.getElementById('canvas-area');
         this.workCanvas = document.getElementById('work-canvas');
         this.overlayCanvas = document.getElementById('overlay-canvas');
+        this.selectionCanvas = document.getElementById('selection-canvas');
         this.gridCanvas = document.getElementById('grid-canvas');
         this.checkerboard = document.getElementById('checkerboard');
 
         this.workCtx = this.workCanvas.getContext('2d');
         this.overlayCtx = this.overlayCanvas.getContext('2d');
+        this.selectionCtx = this.selectionCanvas.getContext('2d');
 
         this.renderer = new Renderer(doc);
         this.gridOverlay = new GridOverlay(this.gridCanvas);
@@ -30,6 +32,11 @@ export class CanvasView {
         this.zoom = ZOOM_LEVELS[this.zoomIndex];
         this.panX = 0;
         this.panY = 0;
+
+        // Marching ants state
+        this._marchingAntsOffset = 0;
+        this._marchingAntsRAF = null;
+        this._selectionEdges = null;
 
         // Interaction state
         this._isPanning = false;
@@ -71,7 +78,7 @@ export class CanvasView {
         const w = this.container.clientWidth;
         const h = this.container.clientHeight;
 
-        for (const c of [this.workCanvas, this.overlayCanvas, this.gridCanvas]) {
+        for (const c of [this.workCanvas, this.overlayCanvas, this.selectionCanvas, this.gridCanvas]) {
             c.width = w;
             c.height = h;
             c.style.width = w + 'px';
@@ -295,5 +302,125 @@ export class CanvasView {
 
         // Draw grid overlay
         this.gridOverlay.draw(doc.width, doc.height, zoom, panX, panY);
+
+        // Redraw marching ants to stay in sync with pan/zoom
+        if (this.doc.selection.active) {
+            this._drawMarchingAnts();
+        }
+    }
+
+    // --- Marching ants selection overlay ---
+
+    invalidateSelectionEdges() {
+        this._selectionEdges = null;
+    }
+
+    startMarchingAnts() {
+        if (this._marchingAntsRAF) return;
+        let lastTime = 0;
+        const animate = (time) => {
+            if (time - lastTime >= 100) { // ~10fps for smooth march
+                this._marchingAntsOffset = (this._marchingAntsOffset + 1) % 16;
+                this._drawMarchingAnts();
+                lastTime = time;
+            }
+            this._marchingAntsRAF = requestAnimationFrame(animate);
+        };
+        this._marchingAntsRAF = requestAnimationFrame(animate);
+    }
+
+    stopMarchingAnts() {
+        if (this._marchingAntsRAF) {
+            cancelAnimationFrame(this._marchingAntsRAF);
+            this._marchingAntsRAF = null;
+        }
+        const ctx = this.selectionCtx;
+        ctx.clearRect(0, 0, this.selectionCanvas.width, this.selectionCanvas.height);
+    }
+
+    _computeSelectionEdges() {
+        const sel = this.doc.selection;
+        if (!sel.active) return [];
+
+        const w = sel.width;
+        const h = sel.height;
+        const mask = sel.mask;
+        const edges = [];
+
+        // For floating selection, compute edges from floating bounds
+        if (sel.hasFloating()) {
+            const f = sel.floating;
+            for (let fy = 0; fy < f.height; fy++) {
+                for (let fx = 0; fx < f.width; fx++) {
+                    if (!f.mask[fy * f.width + fx]) continue;
+                    const docX = f.originX + fx;
+                    const docY = f.originY + fy;
+                    // Check 4 neighbors in floating mask space
+                    const hasTop = (fy > 0 && f.mask[(fy - 1) * f.width + fx]);
+                    const hasBottom = (fy < f.height - 1 && f.mask[(fy + 1) * f.width + fx]);
+                    const hasLeft = (fx > 0 && f.mask[fy * f.width + fx - 1]);
+                    const hasRight = (fx < f.width - 1 && f.mask[fy * f.width + fx + 1]);
+                    if (!hasTop) edges.push(docX, docY, docX + 1, docY);           // top
+                    if (!hasBottom) edges.push(docX, docY + 1, docX + 1, docY + 1); // bottom
+                    if (!hasLeft) edges.push(docX, docY, docX, docY + 1);           // left
+                    if (!hasRight) edges.push(docX + 1, docY, docX + 1, docY + 1);  // right
+                }
+            }
+            return edges;
+        }
+
+        for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+                if (!mask[y * w + x]) continue;
+                // Check 4 neighbors
+                const hasTop = (y > 0 && mask[(y - 1) * w + x]);
+                const hasBottom = (y < h - 1 && mask[(y + 1) * w + x]);
+                const hasLeft = (x > 0 && mask[y * w + x - 1]);
+                const hasRight = (x < w - 1 && mask[y * w + x + 1]);
+                if (!hasTop) edges.push(x, y, x + 1, y);
+                if (!hasBottom) edges.push(x, y + 1, x + 1, y + 1);
+                if (!hasLeft) edges.push(x, y, x, y + 1);
+                if (!hasRight) edges.push(x + 1, y, x + 1, y + 1);
+            }
+        }
+        return edges;
+    }
+
+    _drawMarchingAnts() {
+        const ctx = this.selectionCtx;
+        const cw = this.selectionCanvas.width;
+        const ch = this.selectionCanvas.height;
+        ctx.clearRect(0, 0, cw, ch);
+
+        const sel = this.doc.selection;
+        if (!sel.active) return;
+
+        if (!this._selectionEdges) {
+            this._selectionEdges = this._computeSelectionEdges();
+        }
+
+        const edges = this._selectionEdges;
+        if (edges.length === 0) return;
+
+        const { zoom, panX, panY } = this;
+
+        // Draw black dashes then white dashes offset
+        for (let pass = 0; pass < 2; pass++) {
+            ctx.strokeStyle = pass === 0 ? '#000' : '#fff';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([4, 4]);
+            ctx.lineDashOffset = pass === 0 ? -this._marchingAntsOffset : -(this._marchingAntsOffset + 4);
+            ctx.beginPath();
+            for (let i = 0; i < edges.length; i += 4) {
+                const sx = panX + edges[i] * zoom;
+                const sy = panY + edges[i + 1] * zoom;
+                const ex = panX + edges[i + 2] * zoom;
+                const ey = panY + edges[i + 3] * zoom;
+                ctx.moveTo(sx + 0.5, sy + 0.5);
+                ctx.lineTo(ex + 0.5, ey + 0.5);
+            }
+            ctx.stroke();
+        }
+        ctx.setLineDash([]);
     }
 }

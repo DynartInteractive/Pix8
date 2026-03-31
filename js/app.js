@@ -168,6 +168,18 @@ class App {
         this.bus.on('layer-changed', () => this.canvasView.render());
         this.bus.on('document-changed', () => this.canvasView.render());
 
+        // Selection events
+        this.bus.on('selection-changed', () => {
+            const sel = this.doc.selection;
+            this.canvasView.invalidateSelectionEdges();
+            if (sel.active) {
+                this.canvasView.startMarchingAnts();
+            } else {
+                this.canvasView.stopMarchingAnts();
+            }
+            this.canvasView.render();
+        });
+
         // Keyboard shortcuts
         this._setupKeyboardShortcuts(tools);
 
@@ -233,10 +245,46 @@ class App {
                     return;
                 }
 
-                // Delete = clear active layer
+                // Escape = deselect
+                if (e.key === 'Escape') {
+                    const sel = this.doc.selection;
+                    if (sel.active) {
+                        if (sel.hasFloating()) {
+                            this.undoManager.beginOperation();
+                            sel.commitFloating(this.doc.getActiveLayer());
+                            this.undoManager.endOperation();
+                        }
+                        sel.clear();
+                        this.bus.emit('selection-changed');
+                    }
+                    return;
+                }
+
+                // Delete = clear selected pixels or entire layer
                 if (e.key === 'Delete') {
                     this.undoManager.beginOperation();
-                    this.doc.getActiveLayer().clear();
+                    const sel = this.doc.selection;
+                    if (sel.active) {
+                        if (sel.hasFloating()) {
+                            // Discard floating pixels
+                            sel.clear();
+                            this.bus.emit('selection-changed');
+                        } else {
+                            const layer = this.doc.getActiveLayer();
+                            for (let y = 0; y < sel.height; y++) {
+                                for (let x = 0; x < sel.width; x++) {
+                                    if (!sel.mask[y * sel.width + x]) continue;
+                                    const lx = x - layer.offsetX;
+                                    const ly = y - layer.offsetY;
+                                    if (lx >= 0 && lx < layer.width && ly >= 0 && ly < layer.height) {
+                                        layer.setPixel(lx, ly, TRANSPARENT);
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        this.doc.getActiveLayer().clear();
+                    }
                     this.undoManager.endOperation();
                     this.bus.emit('layer-changed');
                     return;
@@ -248,6 +296,34 @@ class App {
                     this.bus.emit('brush-changed');
                     return;
                 }
+            }
+
+            // Ctrl+A = select all
+            if (e.ctrlKey && !e.shiftKey && e.key === 'a') {
+                e.preventDefault();
+                const sel = this.doc.selection;
+                if (sel.hasFloating()) {
+                    sel.commitFloating(this.doc.getActiveLayer());
+                }
+                sel.selectAll();
+                this.bus.emit('selection-changed');
+                return;
+            }
+
+            // Ctrl+D = deselect
+            if (e.ctrlKey && !e.shiftKey && e.key === 'd') {
+                e.preventDefault();
+                const sel = this.doc.selection;
+                if (sel.active) {
+                    if (sel.hasFloating()) {
+                        this.undoManager.beginOperation();
+                        sel.commitFloating(this.doc.getActiveLayer());
+                        this.undoManager.endOperation();
+                    }
+                    sel.clear();
+                    this.bus.emit('selection-changed');
+                }
+                return;
             }
 
             // Ctrl+Z = undo
@@ -400,6 +476,25 @@ class App {
             { label: 'Undo', shortcut: 'Ctrl+Z', action: () => this.undoManager.undo() },
             { label: 'Redo', shortcut: 'Ctrl+Shift+Z', action: () => this.undoManager.redo() },
             '-',
+            { label: 'Select All', shortcut: 'Ctrl+A', action: () => {
+                const sel = this.doc.selection;
+                if (sel.hasFloating()) sel.commitFloating(this.doc.getActiveLayer());
+                sel.selectAll();
+                this.bus.emit('selection-changed');
+            }},
+            { label: 'Deselect', shortcut: 'Ctrl+D', action: () => {
+                const sel = this.doc.selection;
+                if (sel.active) {
+                    if (sel.hasFloating()) {
+                        this.undoManager.beginOperation();
+                        sel.commitFloating(this.doc.getActiveLayer());
+                        this.undoManager.endOperation();
+                    }
+                    sel.clear();
+                    this.bus.emit('selection-changed');
+                }
+            }},
+            '-',
             { label: 'Clear Layer', shortcut: 'Delete', action: () => {
                 this.undoManager.beginOperation();
                 this.doc.getActiveLayer().clear();
@@ -488,6 +583,10 @@ class App {
         this.doc.palette = newDoc.palette;
         this.doc.fgColorIndex = newDoc.fgColorIndex;
         this.doc.bgColorIndex = newDoc.bgColorIndex;
+
+        // Reset selection for new document dimensions
+        this.doc.selection.resize(newDoc.width, newDoc.height);
+        this.canvasView.stopMarchingAnts();
 
         // Recreate offscreen canvas
         this.canvasView.offscreen.width = newDoc.width;
