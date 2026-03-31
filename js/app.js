@@ -19,7 +19,6 @@ import { EllipseTool } from './tools/EllipseTool.js';
 import { FilledEllipseTool } from './tools/FilledEllipseTool.js';
 import { RectBrushSelector } from './tools/RectBrushSelector.js';
 import { CircleBrushSelector } from './tools/CircleBrushSelector.js';
-import { PolyBrushSelector } from './tools/PolyBrushSelector.js';
 import { EraserTool } from './tools/EraserTool.js';
 import { ColorPickerTool } from './tools/ColorPickerTool.js';
 import { MoveTool } from './tools/MoveTool.js';
@@ -114,6 +113,7 @@ class App {
     _init(width, height) {
         this.doc = new ImageDocument(width, height);
         this.undoManager = new UndoManager(this.doc, this.bus);
+        this._clipboard = null; // { data, mask, width, height }
 
         // Canvas view
         this.canvasView = new CanvasView(this.doc, this.bus);
@@ -131,7 +131,6 @@ class App {
             new FilledEllipseTool(this.doc, this.bus, this.canvasView),
             new RectBrushSelector(this.doc, this.bus, this.canvasView),
             new CircleBrushSelector(this.doc, this.bus, this.canvasView),
-            new PolyBrushSelector(this.doc, this.bus, this.canvasView),
         ];
 
         // Toolbar
@@ -260,33 +259,9 @@ class App {
                     return;
                 }
 
-                // Delete = clear selected pixels or entire layer
+                // Delete = clear selection
                 if (e.key === 'Delete') {
-                    this.undoManager.beginOperation();
-                    const sel = this.doc.selection;
-                    if (sel.active) {
-                        if (sel.hasFloating()) {
-                            // Discard floating pixels
-                            sel.clear();
-                            this.bus.emit('selection-changed');
-                        } else {
-                            const layer = this.doc.getActiveLayer();
-                            for (let y = 0; y < sel.height; y++) {
-                                for (let x = 0; x < sel.width; x++) {
-                                    if (!sel.mask[y * sel.width + x]) continue;
-                                    const lx = x - layer.offsetX;
-                                    const ly = y - layer.offsetY;
-                                    if (lx >= 0 && lx < layer.width && ly >= 0 && ly < layer.height) {
-                                        layer.setPixel(lx, ly, TRANSPARENT);
-                                    }
-                                }
-                            }
-                        }
-                    } else {
-                        this.doc.getActiveLayer().clear();
-                    }
-                    this.undoManager.endOperation();
-                    this.bus.emit('layer-changed');
+                    this._clearSelection();
                     return;
                 }
 
@@ -323,6 +298,41 @@ class App {
                     sel.clear();
                     this.bus.emit('selection-changed');
                 }
+                return;
+            }
+
+            // Ctrl+Shift+C = copy merged
+            if (e.ctrlKey && e.shiftKey && (e.key === 'C' || e.key === 'c')) {
+                e.preventDefault();
+                this._copyMerged();
+                return;
+            }
+
+            // Ctrl+Shift+V = paste in place
+            if (e.ctrlKey && e.shiftKey && (e.key === 'V' || e.key === 'v')) {
+                e.preventDefault();
+                this._pasteInPlace();
+                return;
+            }
+
+            // Ctrl+C = copy
+            if (e.ctrlKey && !e.shiftKey && e.key === 'c') {
+                e.preventDefault();
+                this._copy();
+                return;
+            }
+
+            // Ctrl+X = cut
+            if (e.ctrlKey && !e.shiftKey && e.key === 'x') {
+                e.preventDefault();
+                this._cut();
+                return;
+            }
+
+            // Ctrl+V = paste
+            if (e.ctrlKey && !e.shiftKey && e.key === 'v') {
+                e.preventDefault();
+                this._paste();
                 return;
             }
 
@@ -476,6 +486,12 @@ class App {
             { label: 'Undo', shortcut: 'Ctrl+Z', action: () => this.undoManager.undo() },
             { label: 'Redo', shortcut: 'Ctrl+Shift+Z', action: () => this.undoManager.redo() },
             '-',
+            { label: 'Cut', shortcut: 'Ctrl+X', action: () => this._cut() },
+            { label: 'Copy', shortcut: 'Ctrl+C', action: () => this._copy() },
+            { label: 'Copy Merged', shortcut: 'Ctrl+Shift+C', action: () => this._copyMerged() },
+            { label: 'Paste', shortcut: 'Ctrl+V', action: () => this._paste() },
+            { label: 'Paste in Place', shortcut: 'Ctrl+Shift+V', action: () => this._pasteInPlace() },
+            '-',
             { label: 'Select All', shortcut: 'Ctrl+A', action: () => {
                 const sel = this.doc.selection;
                 if (sel.hasFloating()) sel.commitFloating(this.doc.getActiveLayer());
@@ -495,13 +511,103 @@ class App {
                 }
             }},
             '-',
-            { label: 'Clear Layer', shortcut: 'Delete', action: () => {
-                this.undoManager.beginOperation();
-                this.doc.getActiveLayer().clear();
-                this.undoManager.endOperation();
-                this.bus.emit('layer-changed');
-            }},
+            { label: 'Clear', shortcut: 'Delete', action: () => this._clearSelection() },
         ]);
+    }
+
+    _copy() {
+        const sel = this.doc.selection;
+        if (!sel.active) return;
+        const copied = sel.copyPixels(this.doc.getActiveLayer());
+        if (copied) this._clipboard = copied;
+    }
+
+    _copyMerged() {
+        const sel = this.doc.selection;
+        if (!sel.active) return;
+        const copied = sel.copyPixelsMerged(this.doc.layers);
+        if (copied) this._clipboard = copied;
+    }
+
+    _cut() {
+        const sel = this.doc.selection;
+        if (!sel.active) return;
+        this.undoManager.beginOperation();
+        const copied = sel.copyPixels(this.doc.getActiveLayer());
+        if (copied) this._clipboard = copied;
+        if (!sel.hasFloating()) {
+            sel.liftPixels(this.doc.getActiveLayer());
+        }
+        sel.clear();
+        this.undoManager.endOperation();
+        this.bus.emit('selection-changed');
+        this.bus.emit('layer-changed');
+    }
+
+    _pasteAsFloating(originX, originY) {
+        if (!this._clipboard) return;
+        const sel = this.doc.selection;
+        const layer = this.doc.getActiveLayer();
+
+        this.undoManager.beginOperation();
+        if (sel.hasFloating()) {
+            sel.commitFloating(layer);
+        }
+
+        const cb = this._clipboard;
+        sel.mask.fill(0);
+        sel.active = true;
+        sel.floating = {
+            data: new Uint16Array(cb.data),
+            mask: new Uint8Array(cb.mask),
+            width: cb.width,
+            height: cb.height,
+            originX, originY
+        };
+
+        this.undoManager.endOperation();
+        this.bus.emit('selection-changed');
+        this.bus.emit('layer-changed');
+    }
+
+    _paste() {
+        if (!this._clipboard) return;
+        const cb = this._clipboard;
+        const ox = Math.round((this.doc.width - cb.width) / 2);
+        const oy = Math.round((this.doc.height - cb.height) / 2);
+        this._pasteAsFloating(ox, oy);
+    }
+
+    _pasteInPlace() {
+        if (!this._clipboard) return;
+        this._pasteAsFloating(this._clipboard.originX, this._clipboard.originY);
+    }
+
+    _clearSelection() {
+        const sel = this.doc.selection;
+        if (!sel.active) {
+            alert('No selection');
+            return;
+        }
+        this.undoManager.beginOperation();
+        if (sel.hasFloating()) {
+            sel.clear();
+            this.bus.emit('selection-changed');
+        } else {
+            const layer = this.doc.getActiveLayer();
+            for (let y = 0; y < sel.height; y++) {
+                for (let x = 0; x < sel.width; x++) {
+                    if (!sel.mask[y * sel.width + x]) continue;
+                    const lx = x - layer.offsetX;
+                    const ly = y - layer.offsetY;
+                    if (lx >= 0 && lx < layer.width && ly >= 0 && ly < layer.height) {
+                        layer.setPixel(lx, ly, TRANSPARENT);
+                    }
+                }
+            }
+        }
+        this.undoManager.endOperation();
+        this.bus.emit('layer-changed');
     }
 
     _showViewMenu() {

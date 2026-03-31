@@ -46,6 +46,9 @@ export class CanvasView {
         this._panStartPanY = 0;
         this._spaceDown = false;
         this._pointerDown = false;
+        this._lastDocX = 0;
+        this._lastDocY = 0;
+        this._lastMoveEvent = null;
 
         this._setupResize();
         this._setupEvents();
@@ -60,12 +63,21 @@ export class CanvasView {
 
     set activeTool(tool) {
         this._activeTool = tool;
+        if (tool && tool.onHover) {
+            tool.onHover(this._lastDocX, this._lastDocY);
+        }
         this._updateCursor();
     }
 
     _setupResize() {
         const ro = new ResizeObserver(() => this._resize());
         ro.observe(this.container);
+    }
+
+    _replayLastMove(keyEvent) {
+        const pos = this.screenToDoc(this._lastMoveEvent.clientX, this._lastMoveEvent.clientY);
+        this._activeTool.onPointerMove(pos.x, pos.y, keyEvent);
+        this.render();
     }
 
     _updateCursor() {
@@ -109,12 +121,18 @@ export class CanvasView {
                 this.container.style.cursor = 'grab';
                 e.preventDefault();
             }
+            if (e.key === 'Shift' && this._lastMoveEvent) {
+                this._replayLastMove(e);
+            }
         });
 
         document.addEventListener('keyup', (e) => {
             if (e.code === 'Space') {
                 this._spaceDown = false;
                 this._updateCursor();
+            }
+            if (e.key === 'Shift' && this._lastMoveEvent) {
+                this._replayLastMove(e);
             }
         });
     }
@@ -152,6 +170,8 @@ export class CanvasView {
 
     _onPointerMove(e) {
         const pos = this.screenToDoc(e.clientX, e.clientY);
+        this._lastDocX = pos.x;
+        this._lastDocY = pos.y;
 
         // Update status bar position
         this.bus.emit('cursor-move', pos);
@@ -164,8 +184,12 @@ export class CanvasView {
         }
 
         if (this._pointerDown && this._activeTool) {
+            this._lastMoveEvent = e;
             this._activeTool.onPointerMove(pos.x, pos.y, e);
             this.render();
+        } else if (!this._spaceDown && this._activeTool && this._activeTool.onHover) {
+            this._activeTool.onHover(pos.x, pos.y);
+            this.container.style.cursor = this._activeTool.getCursor();
         }
     }
 
@@ -180,6 +204,8 @@ export class CanvasView {
             const pos = this.screenToDoc(e.clientX, e.clientY);
             this._activeTool.onPointerUp(pos.x, pos.y, e);
             this._pointerDown = false;
+            this._lastMoveEvent = null;
+            this._updateCursor();
             this.render();
             this.bus.emit('layer-changed');
         }
@@ -386,6 +412,40 @@ export class CanvasView {
         return edges;
     }
 
+    _mergeEdges(edges) {
+        // Separate into horizontal (same y) and vertical (same x) edges
+        const hEdges = []; // [x1, y, x2] where x1 < x2
+        const vEdges = []; // [x, y1, y2] where y1 < y2
+        for (let i = 0; i < edges.length; i += 4) {
+            const x1 = edges[i], y1 = edges[i + 1], x2 = edges[i + 2], y2 = edges[i + 3];
+            if (y1 === y2) {
+                hEdges.push([Math.min(x1, x2), y1, Math.max(x1, x2)]);
+            } else {
+                vEdges.push([x1, Math.min(y1, y2), Math.max(y1, y2)]);
+            }
+        }
+        // Merge horizontal: sort by y then x, merge contiguous
+        hEdges.sort((a, b) => a[1] - b[1] || a[0] - b[0]);
+        const merged = [];
+        for (let i = 0; i < hEdges.length; i++) {
+            let [x1, y, x2] = hEdges[i];
+            while (i + 1 < hEdges.length && hEdges[i + 1][1] === y && hEdges[i + 1][0] === x2) {
+                x2 = hEdges[++i][2];
+            }
+            merged.push(x1, y, x2, y);
+        }
+        // Merge vertical: sort by x then y, merge contiguous
+        vEdges.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+        for (let i = 0; i < vEdges.length; i++) {
+            let [x, y1, y2] = vEdges[i];
+            while (i + 1 < vEdges.length && vEdges[i + 1][0] === x && vEdges[i + 1][1] === y2) {
+                y2 = vEdges[++i][2];
+            }
+            merged.push(x, y1, x, y2);
+        }
+        return merged;
+    }
+
     _drawMarchingAnts() {
         const ctx = this.selectionCtx;
         const cw = this.selectionCanvas.width;
@@ -396,7 +456,7 @@ export class CanvasView {
         if (!sel.active) return;
 
         if (!this._selectionEdges) {
-            this._selectionEdges = this._computeSelectionEdges();
+            this._selectionEdges = this._mergeEdges(this._computeSelectionEdges());
         }
 
         const edges = this._selectionEdges;

@@ -1,5 +1,4 @@
 import { TRANSPARENT } from '../constants.js';
-import { pointInPolygon } from '../util/math.js';
 
 export class Selection {
     constructor(width, height) {
@@ -35,39 +34,22 @@ export class Selection {
         this.active = true;
     }
 
-    selectCircle(cx, cy, r) {
+    selectEllipse(x0, y0, x1, y1) {
         this.mask.fill(0);
-        const minX = Math.max(0, cx - r);
-        const minY = Math.max(0, cy - r);
-        const maxX = Math.min(this.width - 1, cx + r);
-        const maxY = Math.min(this.height - 1, cy + r);
-        const rSq = r * r;
+        const minX = Math.max(0, Math.min(x0, x1));
+        const minY = Math.max(0, Math.min(y0, y1));
+        const maxX = Math.min(this.width - 1, Math.max(x0, x1));
+        const maxY = Math.min(this.height - 1, Math.max(y0, y1));
+        const cx = (minX + maxX) / 2;
+        const cy = (minY + maxY) / 2;
+        const rx = (maxX - minX) / 2;
+        const ry = (maxY - minY) / 2;
+        if (rx <= 0 || ry <= 0) return;
         for (let y = minY; y <= maxY; y++) {
             for (let x = minX; x <= maxX; x++) {
-                if ((x - cx) * (x - cx) + (y - cy) * (y - cy) <= rSq) {
-                    this.mask[y * this.width + x] = 1;
-                }
-            }
-        }
-        this.active = true;
-    }
-
-    selectPolygon(vertices) {
-        this.mask.fill(0);
-        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-        for (const [vx, vy] of vertices) {
-            if (vx < minX) minX = vx;
-            if (vy < minY) minY = vy;
-            if (vx > maxX) maxX = vx;
-            if (vy > maxY) maxY = vy;
-        }
-        minX = Math.max(0, minX);
-        minY = Math.max(0, minY);
-        maxX = Math.min(this.width - 1, maxX);
-        maxY = Math.min(this.height - 1, maxY);
-        for (let y = minY; y <= maxY; y++) {
-            for (let x = minX; x <= maxX; x++) {
-                if (pointInPolygon(x, y, vertices)) {
+                const dx = (x - cx) / rx;
+                const dy = (y - cy) / ry;
+                if (dx * dx + dy * dy <= 1) {
                     this.mask[y * this.width + x] = 1;
                 }
             }
@@ -132,6 +114,101 @@ export class Selection {
             data, mask: fMask, width: w, height: h,
             originX: minX, originY: minY
         };
+    }
+
+    copyPixels(layer) {
+        const source = this.hasFloating() ? this.floating : null;
+        if (source) {
+            return {
+                data: new Uint16Array(source.data),
+                mask: new Uint8Array(source.mask),
+                width: source.width,
+                height: source.height,
+                originX: source.originX,
+                originY: source.originY
+            };
+        }
+        const bounds = this.getBounds();
+        if (!bounds) return null;
+
+        const { minX, minY, maxX, maxY } = bounds;
+        const w = maxX - minX + 1;
+        const h = maxY - minY + 1;
+        const data = new Uint16Array(w * h);
+        const fMask = new Uint8Array(w * h);
+        data.fill(TRANSPARENT);
+
+        for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+                const docX = minX + x;
+                const docY = minY + y;
+                if (!this.mask[docY * this.width + docX]) continue;
+                data[y * w + x] = layer.getPixelDoc(docX, docY);
+                fMask[y * w + x] = 1;
+            }
+        }
+        return { data, mask: fMask, width: w, height: h, originX: minX, originY: minY };
+    }
+
+    copyPixelsMerged(layers) {
+        const bounds = this.hasFloating() ? this._floatingBounds() : this.getBounds();
+        if (!bounds) return null;
+
+        const { minX, minY, maxX, maxY } = bounds;
+        const w = maxX - minX + 1;
+        const h = maxY - minY + 1;
+        const data = new Uint16Array(w * h);
+        const fMask = new Uint8Array(w * h);
+        data.fill(TRANSPARENT);
+
+        for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+                const docX = minX + x;
+                const docY = minY + y;
+                const inSelection = this.hasFloating()
+                    ? this._floatingHit(x, y)
+                    : this.mask[docY * this.width + docX];
+                if (!inSelection) continue;
+                // Composite visible layers bottom-to-top
+                let color = TRANSPARENT;
+                for (const layer of layers) {
+                    if (!layer.visible) continue;
+                    const px = layer.getPixelDoc(docX, docY);
+                    if (px !== TRANSPARENT) color = px;
+                }
+                data[y * w + x] = color;
+                fMask[y * w + x] = 1;
+            }
+        }
+        return { data, mask: fMask, width: w, height: h, originX: minX, originY: minY };
+    }
+
+    _floatingBounds() {
+        if (!this.floating) return null;
+        const f = this.floating;
+        return { minX: f.originX, minY: f.originY, maxX: f.originX + f.width - 1, maxY: f.originY + f.height - 1 };
+    }
+
+    _floatingHit(localX, localY) {
+        const f = this.floating;
+        return f && localX >= 0 && localX < f.width && localY >= 0 && localY < f.height && f.mask[localY * f.width + localX];
+    }
+
+    moveMask(dx, dy) {
+        if (dx === 0 && dy === 0) return;
+        const { width, height, mask } = this;
+        const newMask = new Uint8Array(width * height);
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                if (!mask[y * width + x]) continue;
+                const nx = x + dx;
+                const ny = y + dy;
+                if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                    newMask[ny * width + nx] = 1;
+                }
+            }
+        }
+        this.mask = newMask;
     }
 
     moveFloating(newOriginX, newOriginY) {

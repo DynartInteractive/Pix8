@@ -25,7 +25,14 @@ export class ColorPickerTool extends BaseTool {
     _pick(x, y, e) {
         if (x < 0 || x >= this.doc.width || y < 0 || y >= this.doc.height) return;
 
-        const index = this.doc.getActiveLayer().getPixelDoc(x, y);
+        // Sample from merged visible layers, top-to-bottom
+        let index = TRANSPARENT;
+        for (let i = this.doc.layers.length - 1; i >= 0; i--) {
+            const layer = this.doc.layers[i];
+            if (!layer.visible) continue;
+            const px = layer.getPixelDoc(x, y);
+            if (px !== TRANSPARENT) { index = px; break; }
+        }
         if (index === TRANSPARENT) return;
 
         if (e.button === 2 || e.buttons === 2) {

@@ -50,5 +50,5 @@ export const DEFAULT_DOC_WIDTH = 64;
 export const DEFAULT_DOC_HEIGHT = 64;
 
 export const TRANSPARENT = 256; // sentinel value — not a valid palette index
-export const ZOOM_LEVELS = [1, 2, 3, 4, 8, 16, 32];
-export const GRID_MIN_ZOOM = 8;
+export const ZOOM_LEVELS = [1, 2, 3, 4, 6, 8, 12, 16, 32];
+export const GRID_MIN_ZOOM = 12;

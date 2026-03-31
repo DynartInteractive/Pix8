@@ -89,11 +89,12 @@
 }
 
 .tool-flyout .flyout-btn {
-    width: auto;
+    width: 100%;
     height: 30px;
     padding: 0 8px 0 4px;
     display: flex;
     align-items: center;
+    justify-content: flex-start;
     gap: 6px;
     border-radius: 3px;
 }

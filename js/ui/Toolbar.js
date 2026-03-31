@@ -32,7 +32,7 @@ export class Toolbar {
             { tools: ['Rectangle', 'Filled Rect'], label: 'Rectangle' },
             { tools: ['Ellipse', 'Filled Ellipse'], label: 'Ellipse' },
             'sep',
-            { tools: ['Rect Select', 'Circle Select', 'Poly Select'], label: 'Select' },
+            { tools: ['Rect Select', 'Ellipse Select'], label: 'Select' },
         ];
 
         for (const item of layout) {
@@ -133,6 +133,9 @@ export class Toolbar {
                 flyout.classList.add('open');
                 this._openFlyout = flyout;
             }
+            // Always activate the tool shown on the group button
+            const entry = this._buttons.find(b => b.btn === mainBtn && b.isGroupMain);
+            if (entry) this.setActiveTool(entry.toolName);
         });
 
         this.container.insertBefore(wrapper, colorSelector);
