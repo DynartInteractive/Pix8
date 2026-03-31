@@ -38,7 +38,8 @@ export class LayersPanel {
             vis.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                for (const l of this.doc.layers) l.visible = (l === layer);
+                const isSolo = this.doc.layers.every(l => l === layer ? l.visible : !l.visible);
+                for (const l of this.doc.layers) l.visible = isSolo ? true : (l === layer);
                 this.bus.emit('layer-changed');
             });
 
