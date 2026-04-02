@@ -11,16 +11,19 @@ A browser-based 256-color indexed pixel art editor inspired by VGA-era graphics 
 - **Pixel-perfect zoom** -- nearest-neighbor interpolation at all zoom levels (1x-32x), pixel grid overlay at 12x+
 - **Independent layers** -- each layer has its own size and position, auto-extends when drawing outside bounds
 - **Layer operations** -- add, delete (with confirmation), reorder, duplicate, toggle visibility, solo (right-click eye icon), rename (double-click)
-- **Drawing tools** -- Brush, Eraser, Color Picker, Line, Rectangle, Filled Rectangle, Ellipse, Filled Ellipse
+- **Drawing tools** -- Brush, Eraser, Color Picker, Line, Rectangle, Filled Rectangle, Ellipse, Filled Ellipse, Flood Fill
 - **Pixel-perfect preview** -- all drawing tools show an 80% opacity preview of the exact pixels before committing
 - **Move tool** -- reposition layers and floating selections within the document
-- **Selection tools** -- Rectangle and Ellipse selection with Shift for 1:1 constraint (square/circle)
+- **Selection tools** -- Rectangle and Ellipse selection with resizable handles at edges and corners
+- **Selection modifiers** -- Shift+drag to add to selection, Alt+drag to subtract from selection
 - **Selection operations** -- move selection mask by dragging inside, click to deselect, Select All, Deselect
+- **Free Transform** -- move, resize, and rotate selected pixels with interactive handles (T shortcut), commit with Enter, cancel with Escape
+- **Flood Fill** -- fill connected pixels with FG/BG color (G shortcut), respects selection boundaries
 - **Clipboard** -- Cut (Ctrl+X), Copy (Ctrl+C), Copy Merged (Ctrl+Shift+C), Paste (Ctrl+V), Paste in Place (Ctrl+Shift+V)
 - **Brush capture** -- set brush from selection (Ctrl+B) to capture pixels as a custom brush stamp
 - **Palette dialog** -- click pen icon to open palette editor with RGB sliders, click to select FG color, right-click for BG color
 - **Color picker** -- samples from the merged visible image, not just the active layer
-- **Undo/Redo** -- Ctrl+Z / Ctrl+Shift+Z, 50-step history (includes layer geometry changes)
+- **Undo/Redo** -- Ctrl+Z / Ctrl+Shift+Z, 50-step history (includes layer geometry and selection changes)
 - **File I/O** -- save/load `.pix8` projects, import/export 8-bit BMP and PCX, export PNG
 - **Import options** -- import image, import as layer, import palette only, optional index 0 transparency
 - **Dark theme** -- desktop only, minimum 1200px width
@@ -45,13 +48,16 @@ Then open http://localhost:3000 in your browser.
 | L | Line tool |
 | U | Rectangle tool |
 | O | Ellipse tool |
+| G | Flood Fill tool |
 | M | Rectangle Select tool |
+| T | Free Transform tool |
 | X | Swap FG/BG colors |
 | 1 | Reset brush to default (1px) |
 | +/- | Zoom in/out |
 | Space + drag | Pan canvas |
 | Middle mouse drag | Pan canvas |
-| Escape | Deselect / commit floating selection |
+| Enter | Commit free transform |
+| Escape | Cancel free transform / deselect / commit floating selection |
 | Delete | Clear selected pixels |
 | Ctrl+A | Select all |
 | Ctrl+D | Deselect |
