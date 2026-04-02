@@ -26,7 +26,7 @@ export class Toolbar {
 
         // Items: either a tool name string, or a flyout group { tools: [...], label }
         const layout = [
-            'Move', 'Brush', 'Eraser', 'Color Picker',
+            'Move', 'Brush', 'Eraser', 'Fill', 'Color Picker',
             'sep',
             'Line',
             { tools: ['Rectangle', 'Filled Rect'], label: 'Rectangle' },

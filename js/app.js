@@ -17,6 +17,7 @@ import { RectTool } from './tools/RectTool.js';
 import { FilledRectTool } from './tools/FilledRectTool.js';
 import { EllipseTool } from './tools/EllipseTool.js';
 import { FilledEllipseTool } from './tools/FilledEllipseTool.js';
+import { FillTool } from './tools/FillTool.js';
 import { RectBrushSelector } from './tools/RectBrushSelector.js';
 import { CircleBrushSelector } from './tools/CircleBrushSelector.js';
 import { EraserTool } from './tools/EraserTool.js';
@@ -129,6 +130,7 @@ class App {
             new FilledRectTool(this.doc, this.bus, this.canvasView),
             new EllipseTool(this.doc, this.bus, this.canvasView),
             new FilledEllipseTool(this.doc, this.bus, this.canvasView),
+            new FillTool(this.doc, this.bus, this.canvasView),
             new RectBrushSelector(this.doc, this.bus, this.canvasView),
             new CircleBrushSelector(this.doc, this.bus, this.canvasView),
         ];
