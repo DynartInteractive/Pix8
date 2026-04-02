@@ -111,7 +111,11 @@ export class EllipseSelector extends BaseTool {
         if (this._resizing) {
             const { x0, y0, x1, y1 } = this._computeResizeBounds(x, y);
             this.canvasView.clearOverlay();
-            this.canvasView.drawOverlayRect(x0, y0, x1, y1, this._overlayColor());
+            if (this.doc.selection._pureShape === 'ellipse') {
+                this._drawEllipsePreview(x0, y0, x1, y1);
+            } else {
+                this.canvasView.drawOverlayRect(x0, y0, x1, y1, this._overlayColor());
+            }
             return;
         }
 

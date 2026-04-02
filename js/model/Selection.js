@@ -8,6 +8,7 @@ export class Selection {
         this.active = false;
         this.floating = null; // { data, mask, width, height, originX, originY }
         this._resizeSource = null; // { mask, minX, minY, w, h }
+        this._pureShape = null; // 'rect' or 'ellipse' if unmodified
     }
 
     clear() {
@@ -15,6 +16,7 @@ export class Selection {
         this.mask.fill(0);
         this.floating = null;
         this._resizeSource = null;
+        this._pureShape = null;
     }
 
     isSelected(docX, docY) {
@@ -24,6 +26,7 @@ export class Selection {
 
     selectRect(x0, y0, x1, y1) {
         this._resizeSource = null;
+        this._pureShape = 'rect';
         this.mask.fill(0);
         const minX = Math.max(0, Math.min(x0, x1));
         const minY = Math.max(0, Math.min(y0, y1));
@@ -39,6 +42,7 @@ export class Selection {
 
     selectEllipse(x0, y0, x1, y1) {
         this._resizeSource = null;
+        this._pureShape = 'ellipse';
         this.mask.fill(0);
         const minX = Math.max(0, Math.min(x0, x1));
         const minY = Math.max(0, Math.min(y0, y1));
@@ -65,6 +69,7 @@ export class Selection {
 
     addRect(x0, y0, x1, y1) {
         this._resizeSource = null;
+        this._pureShape = null;
         const minX = Math.max(0, Math.min(x0, x1));
         const minY = Math.max(0, Math.min(y0, y1));
         const maxX = Math.min(this.width - 1, Math.max(x0, x1));
@@ -79,6 +84,7 @@ export class Selection {
 
     subtractRect(x0, y0, x1, y1) {
         this._resizeSource = null;
+        this._pureShape = null;
         const minX = Math.max(0, Math.min(x0, x1));
         const minY = Math.max(0, Math.min(y0, y1));
         const maxX = Math.min(this.width - 1, Math.max(x0, x1));
@@ -95,6 +101,7 @@ export class Selection {
 
     addEllipse(x0, y0, x1, y1) {
         this._resizeSource = null;
+        this._pureShape = null;
         const minX = Math.max(0, Math.min(x0, x1));
         const minY = Math.max(0, Math.min(y0, y1));
         const maxX = Math.min(this.width - 1, Math.max(x0, x1));
@@ -120,6 +127,7 @@ export class Selection {
 
     subtractEllipse(x0, y0, x1, y1) {
         this._resizeSource = null;
+        this._pureShape = null;
         const minX = Math.max(0, Math.min(x0, x1));
         const minY = Math.max(0, Math.min(y0, y1));
         const maxX = Math.min(this.width - 1, Math.max(x0, x1));
@@ -147,6 +155,7 @@ export class Selection {
 
     selectAll() {
         this._resizeSource = null;
+        this._pureShape = null;
         this.mask.fill(1);
         this.active = true;
     }
@@ -300,6 +309,50 @@ export class Selection {
     }
 
     applyResize(newMinX, newMinY, newMaxX, newMaxY) {
+        if (this._pureShape === 'rect') {
+            this.mask.fill(0);
+            this._pureShape = 'rect'; // preserve through the fill(0)
+            const minX = Math.max(0, newMinX);
+            const minY = Math.max(0, newMinY);
+            const maxX = Math.min(this.width - 1, newMaxX);
+            const maxY = Math.min(this.height - 1, newMaxY);
+            for (let y = minY; y <= maxY; y++) {
+                for (let x = minX; x <= maxX; x++) {
+                    this.mask[y * this.width + x] = 1;
+                }
+            }
+            this.active = maxX >= minX && maxY >= minY;
+            return;
+        }
+
+        if (this._pureShape === 'ellipse') {
+            this.mask.fill(0);
+            this._pureShape = 'ellipse';
+            const minX = Math.max(0, newMinX);
+            const minY = Math.max(0, newMinY);
+            const maxX = Math.min(this.width - 1, newMaxX);
+            const maxY = Math.min(this.height - 1, newMaxY);
+            const cx = (newMinX + newMaxX) / 2;
+            const cy = (newMinY + newMaxY) / 2;
+            const rx = (newMaxX - newMinX) / 2;
+            const ry = (newMaxY - newMinY) / 2;
+            if (rx <= 0 || ry <= 0) { this.active = false; return; }
+            const erx = rx + 0.5;
+            const ery = ry + 0.5;
+            for (let y = minY; y <= maxY; y++) {
+                for (let x = minX; x <= maxX; x++) {
+                    const dx = (x - cx) / erx;
+                    const dy = (y - cy) / ery;
+                    if (dx * dx + dy * dy <= 1) {
+                        this.mask[y * this.width + x] = 1;
+                    }
+                }
+            }
+            this.active = true;
+            return;
+        }
+
+        // Complex shape: scale source mask via nearest-neighbor
         const src = this._resizeSource;
         if (!src) return;
         const nw = newMaxX - newMinX + 1;
@@ -312,7 +365,6 @@ export class Selection {
                 const docX = newMinX + x;
                 const docY = newMinY + y;
                 if (docX < 0 || docX >= this.width || docY < 0 || docY >= this.height) continue;
-                // Map back to source mask via nearest-neighbor
                 const sx = Math.floor(x * src.w / nw);
                 const sy = Math.floor(y * src.h / nh);
                 if (src.mask[sy * src.w + sx]) {
@@ -325,6 +377,7 @@ export class Selection {
 
     moveMask(dx, dy) {
         this._resizeSource = null;
+        this._pureShape = null;
         if (dx === 0 && dy === 0) return;
         const { width, height, mask } = this;
         const newMask = new Uint8Array(width * height);
@@ -380,6 +433,7 @@ export class Selection {
 
         this.floating = null;
         this._resizeSource = null;
+        this._pureShape = null;
     }
 
     resize(width, height) {
