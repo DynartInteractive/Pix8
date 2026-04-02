@@ -95,9 +95,34 @@ export class UndoManager {
         this._selectionSnapshot = null;
     }
 
+    _restoreResize(entry, key) {
+        const size = entry[key + 'DocSize'];
+        const layers = entry[key + 'Layers'];
+        const sel = entry[key + 'Selection'];
+        this.doc.width = size.width;
+        this.doc.height = size.height;
+        for (let i = 0; i < this.doc.layers.length; i++) {
+            if (layers[i]) {
+                this.doc.layers[i].restoreSnapshot(layers[i].data, layers[i].geometry);
+            }
+        }
+        this.doc.selection.resize(size.width, size.height);
+        this.doc.selection.restoreSnapshot(sel);
+        document.getElementById('status-size').textContent = `${size.width} x ${size.height}`;
+    }
+
     undo() {
         const entry = this.undoStack.pop();
         if (!entry) return;
+
+        if (entry.type === 'resize') {
+            this._restoreResize(entry, 'before');
+            this.redoStack.push(entry);
+            this.bus.emit('selection-changed');
+            this.bus.emit('layer-changed');
+            this.bus.emit('document-changed');
+            return;
+        }
 
         const layer = this.doc.layers[entry.layerIndex];
         if (layer) {
@@ -113,6 +138,15 @@ export class UndoManager {
     redo() {
         const entry = this.redoStack.pop();
         if (!entry) return;
+
+        if (entry.type === 'resize') {
+            this._restoreResize(entry, 'after');
+            this.undoStack.push(entry);
+            this.bus.emit('selection-changed');
+            this.bus.emit('layer-changed');
+            this.bus.emit('document-changed');
+            return;
+        }
 
         const layer = this.doc.layers[entry.layerIndex];
         if (layer) {

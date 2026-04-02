@@ -714,6 +714,8 @@ class App {
     _showImageMenu() {
         const anchor = document.querySelector('[data-menu="image"]');
         this._showDropdown(anchor, [
+            { label: 'Resize...', action: () => this._showResizeDialog() },
+            '-',
             { label: 'Flatten Image', action: () => {
                 const flat = this.doc.flattenToLayer();
                 this.doc.layers = [flat];
@@ -726,6 +728,213 @@ class App {
                 this.bus.emit('brush-changed');
             }},
         ]);
+    }
+
+    _showResizeDialog() {
+        const doc = this.doc;
+        const origW = doc.width;
+        const origH = doc.height;
+        const ratio = origW / origH;
+
+        const overlay = document.createElement('div');
+        overlay.style.cssText = `
+            position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+            display: flex; align-items: center; justify-content: center; z-index: 1000;
+        `;
+
+        const dialog = document.createElement('div');
+        dialog.style.cssText = `
+            background: var(--bg-panel, #2d2d30); border: 1px solid var(--border, #3c3c3c);
+            border-radius: 6px; padding: 24px; min-width: 300px; color: var(--text, #ccc);
+        `;
+
+        const inputStyle = `width: 100%; padding: 6px; background: #3c3c3c; border: 1px solid #555;
+            border-radius: 3px; color: #ccc; font-size: 13px; box-sizing: border-box;`;
+        const checkStyle = `margin-right: 8px; accent-color: #007acc;`;
+        const btnStyle = `padding: 8px 16px; border: none; border-radius: 3px; cursor: pointer; font-size: 13px;`;
+
+        dialog.innerHTML = `
+            <h3 style="margin: 0 0 16px 0; font-size: 16px; color: #fff;">Resize Document</h3>
+            <div style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 12px; margin-bottom: 4px; color: #aaa;">Width (px)</label>
+                <input id="resize-w" type="number" value="${origW}" min="1" max="4096" style="${inputStyle}">
+            </div>
+            <div style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 12px; margin-bottom: 4px; color: #aaa;">Height (px)</label>
+                <input id="resize-h" type="number" value="${origH}" min="1" max="4096" style="${inputStyle}">
+            </div>
+            <div style="margin-bottom: 8px;">
+                <label style="font-size: 13px; color: #ccc; cursor: pointer;">
+                    <input id="resize-aspect" type="checkbox" style="${checkStyle}">Keep aspect ratio
+                </label>
+            </div>
+            <div style="margin-bottom: 12px;">
+                <label style="font-size: 13px; color: #ccc; cursor: pointer;">
+                    <input id="resize-content" type="checkbox" style="${checkStyle}">Resize content
+                </label>
+            </div>
+            <div id="resize-anchor-group" style="margin-bottom: 16px;">
+                <label style="display: block; font-size: 12px; margin-bottom: 6px; color: #aaa;">Anchor</label>
+                <div style="display: inline-grid; grid-template-columns: repeat(3, 24px); gap: 2px;">
+                    ${['nw','n','ne','w','c','e','sw','s','se'].map(id =>
+                        `<label style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;
+                            background:#3c3c3c;border:1px solid #555;border-radius:3px;cursor:pointer;">
+                            <input type="radio" name="resize-anchor" value="${id}"${id === 'nw' ? ' checked' : ''}
+                                style="margin:0;accent-color:#007acc;">
+                        </label>`
+                    ).join('')}
+                </div>
+            </div>
+            <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                <button id="resize-cancel" style="${btnStyle} background: #3c3c3c; color: #ccc;">Cancel</button>
+                <button id="resize-apply" style="${btnStyle} background: #007acc; color: #fff;">Apply</button>
+            </div>
+        `;
+
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+
+        const wInput = dialog.querySelector('#resize-w');
+        const hInput = dialog.querySelector('#resize-h');
+        const aspectCheck = dialog.querySelector('#resize-aspect');
+        const contentCheck = dialog.querySelector('#resize-content');
+        const anchorGroup = dialog.querySelector('#resize-anchor-group');
+
+        const updateAnchorState = () => {
+            const disabled = contentCheck.checked;
+            anchorGroup.style.opacity = disabled ? '0.4' : '1';
+            anchorGroup.style.pointerEvents = disabled ? 'none' : 'auto';
+        };
+        contentCheck.addEventListener('change', updateAnchorState);
+
+        let updatingAspect = false;
+        wInput.addEventListener('input', () => {
+            if (aspectCheck.checked && !updatingAspect) {
+                updatingAspect = true;
+                hInput.value = Math.max(1, Math.round(parseInt(wInput.value) / ratio)) || 1;
+                updatingAspect = false;
+            }
+        });
+        hInput.addEventListener('input', () => {
+            if (aspectCheck.checked && !updatingAspect) {
+                updatingAspect = true;
+                wInput.value = Math.max(1, Math.round(parseInt(hInput.value) * ratio)) || 1;
+                updatingAspect = false;
+            }
+        });
+
+        const close = () => overlay.remove();
+
+        dialog.querySelector('#resize-cancel').addEventListener('click', close);
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+
+        dialog.querySelector('#resize-apply').addEventListener('click', () => {
+            const newW = Math.max(1, Math.min(4096, parseInt(wInput.value) || origW));
+            const newH = Math.max(1, Math.min(4096, parseInt(hInput.value) || origH));
+            if (newW === origW && newH === origH) { close(); return; }
+            const anchor = dialog.querySelector('input[name="resize-anchor"]:checked').value;
+            close();
+            this._applyResize(newW, newH, contentCheck.checked, anchor);
+        });
+
+        dialog.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') dialog.querySelector('#resize-apply').click();
+            if (e.key === 'Escape') close();
+            e.stopPropagation();
+        });
+
+        wInput.focus();
+        wInput.select();
+    }
+
+    _applyResize(newW, newH, resizeContent, anchor = 'nw') {
+        const doc = this.doc;
+        const oldW = doc.width;
+        const oldH = doc.height;
+
+        // Snapshot all layers for undo
+        const beforeLayers = doc.layers.map(l => ({
+            data: l.snapshotData(),
+            geometry: l.snapshotGeometry(),
+        }));
+        const beforeSelection = doc.selection.snapshot();
+        const beforeDocSize = { width: oldW, height: oldH };
+
+        // Clear selection
+        if (doc.selection.active) {
+            if (doc.selection.hasFloating()) {
+                doc.selection.commitFloating(doc.getActiveLayer());
+            }
+            doc.selection.clear();
+        }
+
+        // Resize document dimensions
+        doc.width = newW;
+        doc.height = newH;
+
+        if (resizeContent) {
+            // Scale each layer's pixel data
+            const sx = newW / oldW;
+            const sy = newH / oldH;
+            for (const layer of doc.layers) {
+                const newLayerW = Math.max(1, Math.round(layer.width * sx));
+                const newLayerH = Math.max(1, Math.round(layer.height * sy));
+                const newData = new Uint16Array(newLayerW * newLayerH);
+                newData.fill(TRANSPARENT);
+                for (let y = 0; y < newLayerH; y++) {
+                    for (let x = 0; x < newLayerW; x++) {
+                        const srcX = Math.floor(x / sx);
+                        const srcY = Math.floor(y / sy);
+                        if (srcX < layer.width && srcY < layer.height) {
+                            newData[y * newLayerW + x] = layer.data[srcY * layer.width + srcX];
+                        }
+                    }
+                }
+                layer.data = newData;
+                layer.width = newLayerW;
+                layer.height = newLayerH;
+                layer.offsetX = Math.round(layer.offsetX * sx);
+                layer.offsetY = Math.round(layer.offsetY * sy);
+            }
+        } else {
+            // Shift layers based on anchor point
+            const dx = anchor.includes('w') ? 0 : anchor.includes('e') ? newW - oldW : Math.round((newW - oldW) / 2);
+            const dy = anchor.includes('n') ? 0 : anchor.includes('s') ? newH - oldH : Math.round((newH - oldH) / 2);
+            if (dx !== 0 || dy !== 0) {
+                for (const layer of doc.layers) {
+                    layer.offsetX += dx;
+                    layer.offsetY += dy;
+                }
+            }
+        }
+
+        // Resize selection mask
+        doc.selection.resize(newW, newH);
+
+        // Snapshot after for undo
+        const afterLayers = doc.layers.map(l => ({
+            data: l.snapshotData(),
+            geometry: l.snapshotGeometry(),
+        }));
+        const afterSelection = doc.selection.snapshot();
+
+        // Push a custom undo entry for the full resize
+        this.undoManager.undoStack.push({
+            type: 'resize',
+            beforeDocSize,
+            afterDocSize: { width: newW, height: newH },
+            beforeLayers,
+            afterLayers,
+            beforeSelection,
+            afterSelection,
+        });
+        this.undoManager.redoStack = [];
+
+        // Update status bar and re-render
+        document.getElementById('status-size').textContent = `${newW} x ${newH}`;
+        this.bus.emit('selection-changed');
+        this.bus.emit('layer-changed');
+        this.bus.emit('document-changed');
     }
 
     _saveProject() {

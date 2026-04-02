@@ -336,6 +336,12 @@ export class CanvasView {
         const cw = this.workCanvas.width;
         const ch = this.workCanvas.height;
 
+        // Update offscreen canvas if document dimensions changed
+        if (this.offscreen.width !== doc.width || this.offscreen.height !== doc.height) {
+            this.offscreen.width = doc.width;
+            this.offscreen.height = doc.height;
+        }
+
         // Composite document
         const imageData = this.renderer.composite();
         this.offscreenCtx.putImageData(imageData, 0, 0);
