@@ -23,8 +23,21 @@ export class PaletteEditDialog {
         this._undoBtn = null;
         this._sliderDirty = false;
 
+        // HSV picker state
+        this._hue = 0;        // 0-360
+        this._sat = 0;        // 0-1
+        this._val = 1;        // 0-1
+        this._svCanvas = null;
+        this._svCtx = null;
+        this._hueCanvas = null;
+        this._hueCtx = null;
+        this._svCursor = null;
+        this._hueCursor = null;
+        this._svDragging = false;
+        this._hueDragging = false;
+
         this._rSlider = null; this._gSlider = null; this._bSlider = null;
-        this._rNum = null; this._gNum = null; this._bNum = null;
+        this._rNum = null; this._gNum = null; this._bNum = null; this._hexInput = null;
         this._indexLabel = null;
         this._rangePreview = null;
         this._grid = null;
@@ -123,7 +136,7 @@ export class PaletteEditDialog {
         gridCol.appendChild(rangePreview);
 
         gridRow.appendChild(gridCol);
-        gridRow.appendChild(this._buildSliders());
+        gridRow.appendChild(this._buildColorPicker());
         dialog.appendChild(gridRow);
 
         // Footer
@@ -185,7 +198,7 @@ export class PaletteEditDialog {
 
         this._updateRangeHighlight();
         this._updateRangePreview();
-        this._syncSliders();
+        this._syncPicker();
     }
 
     _buildToolbar() {
@@ -255,80 +268,326 @@ export class PaletteEditDialog {
         return toolbar;
     }
 
-    _buildSliders() {
+    _buildColorPicker() {
         const container = document.createElement('div');
-        container.className = 'ped-sliders';
+        container.className = 'ped-color-picker';
 
-        const makeSlider = (label) => {
-            const col = document.createElement('div');
-            col.className = 'ped-slider-col';
+        // Top row: SV canvas + hue strip
+        const pickerRow = document.createElement('div');
+        pickerRow.className = 'ped-picker-row';
+
+        // SV area
+        const svArea = document.createElement('div');
+        svArea.className = 'ped-sv-area';
+
+        const svCanvas = document.createElement('canvas');
+        svCanvas.className = 'ped-sv-canvas';
+        svCanvas.width = 160;
+        svCanvas.height = 160;
+        this._svCanvas = svCanvas;
+        this._svCtx = svCanvas.getContext('2d');
+        svArea.appendChild(svCanvas);
+
+        const svCursor = document.createElement('div');
+        svCursor.className = 'ped-sv-cursor';
+        this._svCursor = svCursor;
+        svArea.appendChild(svCursor);
+
+        svCanvas.addEventListener('pointerdown', (e) => this._onSVPointerDown(e));
+        svCanvas.addEventListener('pointermove', (e) => this._onSVPointerMove(e));
+        svCanvas.addEventListener('pointerup', (e) => this._onSVPointerUp(e));
+
+        pickerRow.appendChild(svArea);
+
+        // Hue strip
+        const hueStrip = document.createElement('div');
+        hueStrip.className = 'ped-hue-strip';
+
+        const hueCanvas = document.createElement('canvas');
+        hueCanvas.className = 'ped-hue-canvas';
+        hueCanvas.width = 20;
+        hueCanvas.height = 160;
+        this._hueCanvas = hueCanvas;
+        this._hueCtx = hueCanvas.getContext('2d');
+        hueStrip.appendChild(hueCanvas);
+
+        const hueCursor = document.createElement('div');
+        hueCursor.className = 'ped-hue-cursor';
+        this._hueCursor = hueCursor;
+        hueStrip.appendChild(hueCursor);
+
+        hueCanvas.addEventListener('pointerdown', (e) => this._onHuePointerDown(e));
+        hueCanvas.addEventListener('pointermove', (e) => this._onHuePointerMove(e));
+        hueCanvas.addEventListener('pointerup', (e) => this._onHuePointerUp(e));
+
+        pickerRow.appendChild(hueStrip);
+        container.appendChild(pickerRow);
+
+        // RGB slider rows
+        const max = this._6bit ? 63 : 255;
+        const makeSliderRow = (label) => {
+            const row = document.createElement('div');
+            row.className = 'ped-inputs-row';
 
             const lbl = document.createElement('div');
-            lbl.className = 'ped-slider-label';
+            lbl.className = 'ped-rgb-label';
             lbl.textContent = label;
-            col.appendChild(lbl);
+            row.appendChild(lbl);
 
             const slider = document.createElement('input');
             slider.type = 'range';
             slider.min = 0;
-            slider.max = this._6bit ? 63 : 255;
+            slider.max = max;
             slider.value = 0;
-            slider.orient = 'vertical';
-            slider.className = 'ped-vslider';
-            col.appendChild(slider);
+            slider.className = 'ped-rgb-slider';
+            row.appendChild(slider);
 
             const num = document.createElement('input');
             num.type = 'number';
             num.min = 0;
-            num.max = this._6bit ? 63 : 255;
+            num.max = max;
             num.value = 0;
-            num.className = 'ped-slider-num';
-            col.appendChild(num);
+            num.className = 'ped-rgb-num';
+            row.appendChild(num);
 
-            container.appendChild(col);
+            container.appendChild(row);
             return { slider, num };
         };
 
-        const r = makeSlider('R');
-        const g = makeSlider('G');
-        const b = makeSlider('B');
+        const rRow = makeSliderRow('R');
+        const gRow = makeSliderRow('G');
+        const bRow = makeSliderRow('B');
 
-        this._rSlider = r.slider; this._rNum = r.num;
-        this._gSlider = g.slider; this._gNum = g.num;
-        this._bSlider = b.slider; this._bNum = b.num;
+        this._rSlider = rRow.slider; this._rNum = rRow.num;
+        this._gSlider = gRow.slider; this._gNum = gRow.num;
+        this._bSlider = bRow.slider; this._bNum = bRow.num;
 
-        const applyColor = () => {
-            const rv = parseInt(this._rSlider.value);
-            const gv = parseInt(this._gSlider.value);
-            const bv = parseInt(this._bSlider.value);
-            this._rNum.value = rv;
-            this._gNum.value = gv;
-            this._bNum.value = bv;
-            this._applySliderColor(rv, gv, bv);
-        };
-
-        const applyFromNum = () => {
-            const max = this._6bit ? 63 : 255;
-            const rv = Math.min(max, Math.max(0, parseInt(this._rNum.value) || 0));
-            const gv = Math.min(max, Math.max(0, parseInt(this._gNum.value) || 0));
-            const bv = Math.min(max, Math.max(0, parseInt(this._bNum.value) || 0));
-            this._rSlider.value = rv;
-            this._gSlider.value = gv;
-            this._bSlider.value = bv;
-            this._applySliderColor(rv, gv, bv);
+        const applyFromSliders = () => {
+            this._rNum.value = this._rSlider.value;
+            this._gNum.value = this._gSlider.value;
+            this._bNum.value = this._bSlider.value;
+            this._applyFromRGBInputs();
         };
 
         for (const s of [this._rSlider, this._gSlider, this._bSlider]) {
-            s.addEventListener('input', applyColor);
+            s.addEventListener('input', applyFromSliders);
         }
         for (const n of [this._rNum, this._gNum, this._bNum]) {
-            n.addEventListener('change', applyFromNum);
+            n.addEventListener('change', () => this._applyFromRGBInputs());
         }
+
+        // Hex row
+        const hexRow = document.createElement('div');
+        hexRow.className = 'ped-inputs-row';
+
+        const hexLabel = document.createElement('div');
+        hexLabel.className = 'ped-rgb-label';
+        hexLabel.textContent = '#';
+        hexRow.appendChild(hexLabel);
+
+        const hexInput = document.createElement('input');
+        hexInput.type = 'text';
+        hexInput.maxLength = 6;
+        hexInput.className = 'ped-hex-input';
+        hexInput.value = '000000';
+        this._hexInput = hexInput;
+        hexRow.appendChild(hexInput);
+
+        hexInput.addEventListener('paste', (e) => {
+            e.preventDefault();
+            const text = (e.clipboardData || window.clipboardData).getData('text');
+            hexInput.value = text.replace(/^#/, '').slice(0, 6);
+            hexInput.dispatchEvent(new Event('change'));
+        });
+
+        hexInput.addEventListener('change', () => this._applyFromHexInput());
+
+        container.appendChild(hexRow);
 
         return container;
     }
 
-    _applySliderColor(rv, gv, bv) {
+    // ── HSV Conversion ───────────────────────────────────────────────
+
+    _rgbToHsv(r, g, b) {
+        r /= 255; g /= 255; b /= 255;
+        const max = Math.max(r, g, b), min = Math.min(r, g, b);
+        const d = max - min;
+        const v = max;
+        const s = max === 0 ? 0 : d / max;
+        let h = 0;
+        if (d !== 0) {
+            if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) * 60;
+            else if (max === g) h = ((b - r) / d + 2) * 60;
+            else h = ((r - g) / d + 4) * 60;
+        }
+        return [h, s, v];
+    }
+
+    _hsvToRgb(h, s, v) {
+        h = ((h % 360) + 360) % 360;
+        const c = v * s;
+        const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+        const m = v - c;
+        let r, g, b;
+        if (h < 60)       { r = c; g = x; b = 0; }
+        else if (h < 120) { r = x; g = c; b = 0; }
+        else if (h < 180) { r = 0; g = c; b = x; }
+        else if (h < 240) { r = 0; g = x; b = c; }
+        else if (h < 300) { r = x; g = 0; b = c; }
+        else               { r = c; g = 0; b = x; }
+        return [
+            Math.round((r + m) * 255),
+            Math.round((g + m) * 255),
+            Math.round((b + m) * 255)
+        ];
+    }
+
+    // ── Color Picker Rendering ───────────────────────────────────────
+
+    _renderSVCanvas() {
+        const ctx = this._svCtx;
+        const w = this._svCanvas.width;
+        const h = this._svCanvas.height;
+        const [r, g, b] = this._hsvToRgb(this._hue, 1, 1);
+        ctx.fillStyle = `rgb(${r},${g},${b})`;
+        ctx.fillRect(0, 0, w, h);
+        const white = ctx.createLinearGradient(0, 0, w, 0);
+        white.addColorStop(0, 'rgba(255,255,255,1)');
+        white.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = white;
+        ctx.fillRect(0, 0, w, h);
+        const black = ctx.createLinearGradient(0, 0, 0, h);
+        black.addColorStop(0, 'rgba(0,0,0,0)');
+        black.addColorStop(1, 'rgba(0,0,0,1)');
+        ctx.fillStyle = black;
+        ctx.fillRect(0, 0, w, h);
+    }
+
+    _renderHueStrip() {
+        const ctx = this._hueCtx;
+        const w = this._hueCanvas.width;
+        const h = this._hueCanvas.height;
+        const grad = ctx.createLinearGradient(0, 0, 0, h);
+        for (const deg of [0, 60, 120, 180, 240, 300, 360]) {
+            const [r, g, b] = this._hsvToRgb(deg, 1, 1);
+            grad.addColorStop(deg / 360, `rgb(${r},${g},${b})`);
+        }
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, w, h);
+    }
+
+    _updateSVCursor() {
+        const w = this._svCanvas.width;
+        const h = this._svCanvas.height;
+        this._svCursor.style.left = (this._sat * w) + 'px';
+        this._svCursor.style.top = ((1 - this._val) * h) + 'px';
+    }
+
+    _updateHueCursor() {
+        const h = this._hueCanvas.height;
+        this._hueCursor.style.top = (this._hue / 360 * h) + 'px';
+    }
+
+    // ── SV Canvas Interaction ────────────────────────────────────────
+
+    _onSVPointerDown(e) {
+        if (e.button !== 0) return;
+        this._svDragging = true;
+        e.target.setPointerCapture(e.pointerId);
+        this._updateSVFromPointer(e);
+    }
+
+    _onSVPointerMove(e) {
+        if (!this._svDragging) return;
+        this._updateSVFromPointer(e);
+    }
+
+    _onSVPointerUp(e) {
+        if (!this._svDragging) return;
+        this._svDragging = false;
+        e.target.releasePointerCapture(e.pointerId);
+    }
+
+    _updateSVFromPointer(e) {
+        const rect = this._svCanvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        this._sat = Math.max(0, Math.min(1, x / rect.width));
+        this._val = Math.max(0, Math.min(1, 1 - y / rect.height));
+        this._updateSVCursor();
+        this._applyPickerColor();
+    }
+
+    // ── Hue Strip Interaction ────────────────────────────────────────
+
+    _onHuePointerDown(e) {
+        if (e.button !== 0) return;
+        this._hueDragging = true;
+        e.target.setPointerCapture(e.pointerId);
+        this._updateHueFromPointer(e);
+    }
+
+    _onHuePointerMove(e) {
+        if (!this._hueDragging) return;
+        this._updateHueFromPointer(e);
+    }
+
+    _onHuePointerUp(e) {
+        if (!this._hueDragging) return;
+        this._hueDragging = false;
+        e.target.releasePointerCapture(e.pointerId);
+    }
+
+    _updateHueFromPointer(e) {
+        const rect = this._hueCanvas.getBoundingClientRect();
+        const y = e.clientY - rect.top;
+        this._hue = Math.max(0, Math.min(360, y / rect.height * 360));
+        this._renderSVCanvas();
+        this._updateHueCursor();
+        this._applyPickerColor();
+    }
+
+    // ── Apply Color ──────────────────────────────────────────────────
+
+    _rgbToHex(r, g, b) {
+        return ((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1).toUpperCase();
+    }
+
+    _syncRGBDisplay(r, g, b) {
+        if (this._6bit) {
+            const rv = Math.round(r / 4), gv = Math.round(g / 4), bv = Math.round(b / 4);
+            this._rSlider.value = rv; this._rNum.value = rv;
+            this._gSlider.value = gv; this._gNum.value = gv;
+            this._bSlider.value = bv; this._bNum.value = bv;
+        } else {
+            this._rSlider.value = r; this._rNum.value = r;
+            this._gSlider.value = g; this._gNum.value = g;
+            this._bSlider.value = b; this._bNum.value = b;
+        }
+        this._hexInput.value = this._rgbToHex(r, g, b);
+    }
+
+    _applyPickerColor() {
+        if (!this._sliderDirty) {
+            this._pushPaletteHistory();
+            this._sliderDirty = true;
+        }
+        let [r, g, b] = this._hsvToRgb(this._hue, this._sat, this._val);
+        [r, g, b] = this._snapIf6bit(r, g, b);
+        const idx = this._rangeStart;
+        this.doc.palette.setColor(idx, r, g, b);
+        this._dlgSwatches[idx].style.backgroundColor = `rgb(${r},${g},${b})`;
+        this._syncRGBDisplay(r, g, b);
+        this._updateRangePreview();
+        this.bus.emit('palette-changed');
+    }
+
+    _applyFromRGBInputs() {
+        const max = this._6bit ? 63 : 255;
+        const rv = Math.min(max, Math.max(0, parseInt(this._rNum.value) || 0));
+        const gv = Math.min(max, Math.max(0, parseInt(this._gNum.value) || 0));
+        const bv = Math.min(max, Math.max(0, parseInt(this._bNum.value) || 0));
         if (!this._sliderDirty) {
             this._pushPaletteHistory();
             this._sliderDirty = true;
@@ -338,9 +597,41 @@ export class PaletteEditDialog {
         const b = this._6bit ? bv * 4 : bv;
         const idx = this._rangeStart;
         this.doc.palette.setColor(idx, r, g, b);
-        const css = `rgb(${r},${g},${b})`;
-        this._dlgSwatches[idx].style.backgroundColor = css;
+        this._dlgSwatches[idx].style.backgroundColor = `rgb(${r},${g},${b})`;
+        const [h, s, v] = this._rgbToHsv(r, g, b);
+        if (s > 0) this._hue = h;
+        this._sat = s;
+        this._val = v;
+        this._syncRGBDisplay(r, g, b);
+        this._renderSVCanvas();
+        this._updateSVCursor();
+        this._updateHueCursor();
+        this._updateRangePreview();
+        this.bus.emit('palette-changed');
+    }
 
+    _applyFromHexInput() {
+        const hex = this._hexInput.value.replace(/[^0-9a-fA-F]/g, '').slice(0, 6);
+        if (hex.length !== 6) return;
+        let r = parseInt(hex.slice(0, 2), 16);
+        let g = parseInt(hex.slice(2, 4), 16);
+        let b = parseInt(hex.slice(4, 6), 16);
+        if (!this._sliderDirty) {
+            this._pushPaletteHistory();
+            this._sliderDirty = true;
+        }
+        [r, g, b] = this._snapIf6bit(r, g, b);
+        const idx = this._rangeStart;
+        this.doc.palette.setColor(idx, r, g, b);
+        this._dlgSwatches[idx].style.backgroundColor = `rgb(${r},${g},${b})`;
+        const [h, s, v] = this._rgbToHsv(r, g, b);
+        if (s > 0) this._hue = h;
+        this._sat = s;
+        this._val = v;
+        this._syncRGBDisplay(r, g, b);
+        this._renderSVCanvas();
+        this._updateSVCursor();
+        this._updateHueCursor();
         this._updateRangePreview();
         this.bus.emit('palette-changed');
     }
@@ -370,7 +661,7 @@ export class PaletteEditDialog {
         this._grid.setPointerCapture(e.pointerId);
         this._updateRangeHighlight();
         this._updateRangePreview();
-        this._syncSliders();
+        this._syncPicker();
     }
 
     _onGridPointerMove(e) {
@@ -392,7 +683,7 @@ export class PaletteEditDialog {
         }
         this._updateRangeHighlight();
         this._updateRangePreview();
-        this._syncSliders();
+        this._syncPicker();
     }
 
     _sortedRange() {
@@ -433,7 +724,7 @@ export class PaletteEditDialog {
         }
     }
 
-    _syncSliders() {
+    _syncPicker() {
         const [lo, hi] = this._sortedRange();
         const [r, g, b] = this.doc.palette.getColor(this._rangeStart);
         if (lo === hi) {
@@ -441,21 +732,22 @@ export class PaletteEditDialog {
         } else {
             this._indexLabel.textContent = `Index: ${lo}\u2013${hi} (${hi - lo + 1} colors)`;
         }
-        if (this._6bit) {
-            this._rSlider.value = Math.round(r / 4);
-            this._gSlider.value = Math.round(g / 4);
-            this._bSlider.value = Math.round(b / 4);
-            this._rNum.value = Math.round(r / 4);
-            this._gNum.value = Math.round(g / 4);
-            this._bNum.value = Math.round(b / 4);
-        } else {
-            this._rSlider.value = r;
-            this._gSlider.value = g;
-            this._bSlider.value = b;
-            this._rNum.value = r;
-            this._gNum.value = g;
-            this._bNum.value = b;
+        // Only update HSV from palette if color changed externally;
+        // otherwise keep precise HSV to avoid 6-bit snap round-trip drift
+        let [er, eg, eb] = this._hsvToRgb(this._hue, this._sat, this._val);
+        [er, eg, eb] = this._snapIf6bit(er, eg, eb);
+        if (r !== er || g !== eg || b !== eb) {
+            const [h, s, v] = this._rgbToHsv(r, g, b);
+            if (s > 0) this._hue = h;
+            this._sat = s;
+            this._val = v;
         }
+        this._syncRGBDisplay(r, g, b);
+        // Re-render canvases and cursors
+        this._renderSVCanvas();
+        this._renderHueStrip();
+        this._updateSVCursor();
+        this._updateHueCursor();
     }
 
     updateSwatches() {
@@ -464,7 +756,7 @@ export class PaletteEditDialog {
             this._dlgSwatches[i].style.backgroundColor = `rgb(${r},${g},${b})`;
         }
         this._updateRangePreview();
-        this._syncSliders();
+        this._syncPicker();
     }
 
     // ── 6-Bit Toggle ──────────────────────────────────────────────────
@@ -485,7 +777,7 @@ export class PaletteEditDialog {
                 );
             }
             this._6bit = true;
-            this._updateSliderRange(63);
+            this._updateInputRange(63);
             this.updateSwatches();
             this.bus.emit('palette-changed');
         } else {
@@ -494,12 +786,12 @@ export class PaletteEditDialog {
                 return;
             }
             this._6bit = false;
-            this._updateSliderRange(255);
-            this._syncSliders();
+            this._updateInputRange(255);
+            this._syncPicker();
         }
     }
 
-    _updateSliderRange(max) {
+    _updateInputRange(max) {
         for (const s of [this._rSlider, this._gSlider, this._bSlider]) {
             s.max = max;
         }
@@ -511,9 +803,9 @@ export class PaletteEditDialog {
     _snapIf6bit(r, g, b) {
         if (!this._6bit) return [r, g, b];
         return [
-            Math.round(r / 4) * 4,
-            Math.round(g / 4) * 4,
-            Math.round(b / 4) * 4
+            Math.min(255, Math.round(r / 4) * 4),
+            Math.min(255, Math.round(g / 4) * 4),
+            Math.min(255, Math.round(b / 4) * 4)
         ];
     }
 

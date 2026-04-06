@@ -57,7 +57,7 @@
     border-radius: 6px;
     padding: 10px;
     width: fit-content;
-    max-width: 430px;
+    max-width: 484px;
     color: var(--text, #ccc);
 }
 
@@ -155,51 +155,104 @@
     text-align: center;
 }
 
-/* Vertical sliders (right of grid) */
-.ped-sliders {
+/* HSV Color Picker (right of grid) */
+.ped-color-picker {
     display: flex;
-    gap: 2px;
+    flex-direction: column;
+    gap: 4px;
     padding-left: 6px;
 }
 
-.ped-slider-col {
+.ped-picker-row {
     display: flex;
-    flex-direction: column;
+    gap: 6px;
+}
+
+.ped-sv-area {
+    position: relative;
+    width: 160px;
+    height: 160px;
+    cursor: crosshair;
+}
+
+.ped-sv-canvas {
+    width: 100%;
+    height: 100%;
+    border: 1px solid var(--border, #3c3c3c);
+}
+
+.ped-sv-cursor {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.5);
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+}
+
+.ped-hue-strip {
+    position: relative;
+    width: 20px;
+    height: 160px;
+    cursor: pointer;
+}
+
+.ped-hue-canvas {
+    width: 100%;
+    height: 100%;
+    border: 1px solid var(--border, #3c3c3c);
+}
+
+.ped-hue-cursor {
+    position: absolute;
+    left: -2px;
+    right: -2px;
+    height: 2px;
+    background: #fff;
+    box-shadow: 0 0 2px rgba(0,0,0,0.8);
+    pointer-events: none;
+    transform: translateY(-50%);
+}
+
+.ped-inputs-row {
+    display: flex;
     align-items: center;
     gap: 3px;
-    width: 42px;
+    margin: 2px 0;
 }
 
-.ped-slider-label {
-    font-size: 12px;
+.ped-rgb-label {
+    font-size: 11px;
     font-weight: 600;
     color: var(--text-dim, #888);
+    width: 12px;
+    text-align: right;
 }
 
-.ped-vslider {
-    writing-mode: vertical-lr;
-    direction: rtl;
+.ped-rgb-slider {
+    flex: 1;
+    height: 4px;
     -webkit-appearance: none;
     appearance: none;
-    width: 6px;
-    flex: 1;
     background: var(--bg-input, #3c3c3c);
     border-radius: 2px;
     outline: none;
 }
 
-.ped-vslider::-webkit-slider-thumb {
+.ped-rgb-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 14px;
-    height: 14px;
+    width: 12px;
+    height: 12px;
     border-radius: 50%;
     background: var(--accent, #007acc);
     cursor: pointer;
 }
 
-.ped-slider-num {
-    width: 42px;
+.ped-rgb-num {
+    width: 34px;
     background: var(--bg-input, #3c3c3c);
     border: 1px solid var(--border, #3c3c3c);
     border-radius: 2px;
@@ -209,9 +262,22 @@
     text-align: center;
 }
 
-.ped-slider-num:focus {
+.ped-rgb-num:focus,
+.ped-hex-input:focus {
     border-color: var(--accent, #007acc);
     outline: none;
+}
+
+.ped-hex-input {
+    width: 52px;
+    background: var(--bg-input, #3c3c3c);
+    border: 1px solid var(--border, #3c3c3c);
+    border-radius: 2px;
+    color: var(--text, #ccc);
+    font-size: 11px;
+    padding: 2px 2px;
+    text-align: center;
+    font-family: monospace;
 }
 
 /* Status message for two-step ops */
