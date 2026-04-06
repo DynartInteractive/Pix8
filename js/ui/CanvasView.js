@@ -268,8 +268,8 @@ export class CanvasView {
             if (this._activeTool.onHover) {
                 this._activeTool.onHover(pos.x, pos.y);
             }
-            // Show move cursor when Shift held near a guide
-            if (e.shiftKey && this.guides.visible) {
+            // Show move cursor when Shift held near a guide (not during active drag)
+            if (e.shiftKey && this.guides.visible && !this.guides.isDragging()) {
                 const hit = this.guides.hitTest(e.clientX, e.clientY);
                 if (hit) {
                     this.container.style.cursor = hit.axis === 'h' ? 'ns-resize' : 'ew-resize';
