@@ -8,7 +8,7 @@ Try it online: https://pix8.dynart.net
 
 ## Features
 
-- **256-color indexed palette** -- all 256 entries (0-255) are usable colors, transparency is a separate sentinel value
+- **256-color indexed palette** -- all 256 entries (0-255) are usable colors, transparency is a separate sentinel value.  
 - **Photoshop-like layout** -- toolbar with flyout groups on the left, canvas in the center, layers and palette on the right
 - **Pixel-perfect zoom** -- nearest-neighbor interpolation at all zoom levels (1x-32x), pixel grid overlay at 12x+
 - **Configurable grid** -- user-settable grid size with snap-to-grid support (View > Grid Settings)
@@ -31,7 +31,8 @@ Try it online: https://pix8.dynart.net
 - **Truecolor image import** -- File > Open supports PNG/JPG/GIF/WebP with median-cut quantization and dithering (None/Floyd-Steinberg/Ordered Bayer)
 - **Frame animation** -- sprite-sheet animation with per-frame pixel data; frame timeline with thumbnails, tag groups, play/pause/stop, tag-based playback
 - **Onion skinning** -- red-tinted previous frames, blue-tinted next frames; configurable opacity; extended mode (+-2 frames)
-- **GrafX2-style palette editor** -- range selection, HSV color picker (saturation/value square + hue strip), RGB sliders with hex input, batch operations (Swap, X-Swap, Copy, Flip, X-Flip, Neg, Gray, Spread, Merge, Sort, Reduce, Zap Unused, Used highlight), 6-bit VGA mode, palette Load/Save (PAL/BMP/PCX)
+- **GrafX2-style palette editor** -- range selection, HSV color picker (saturation/value square + hue strip), RGB sliders with hex input, batch operations (Swap, X-Swap, Copy, Flip, X-Flip, Neg, Gray, Spread, Merge, Sort, Reduce, Zap Unused, Used highlight), 6-bit VGA mode, palette Load/Save (PAL/BMP/PCX)  
+![Palette Editor Screenshot](palette-editor-v1.3.0.png)
 - **Toast notifications** -- non-blocking slide-down messages replace browser alert dialogs
 - **Desktop-style menus** -- click to open, hover to switch, same for toolbar flyout groups
 - **Undo/Redo** -- Ctrl+Z / Ctrl+Shift+Z, 50-step history including palette edits and all layer operations (add, delete, move, duplicate, rename, visibility, opacity)
