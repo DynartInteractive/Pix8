@@ -23,6 +23,9 @@ export class RectSelector extends BaseTool {
         this._selectionMode = 'replace'; // 'replace', 'add', 'subtract'
         this._hoveringSelection = false;
         this._hoverHandle = null;
+        this._moveOrigBounds = null;
+        this._moveAppliedDx = 0;
+        this._moveAppliedDy = 0;
     }
 
     getCursor() {
@@ -70,6 +73,12 @@ export class RectSelector extends BaseTool {
             // Move only in replace mode
             if (sel.active && sel.isSelected(x, y)) {
                 this._moving = true;
+                const b = sel.getBounds();
+                if (b) {
+                    this._moveOrigBounds = { left: b.minX, top: b.minY, right: b.maxX + 1, bottom: b.maxY + 1 };
+                }
+                this._moveAppliedDx = 0;
+                this._moveAppliedDy = 0;
             }
         }
 
@@ -104,17 +113,31 @@ export class RectSelector extends BaseTool {
         if (this._resizing) {
             const { x0, y0, x1, y1 } = this._computeResizeBounds(x, y);
             this.canvasView.clearOverlay();
-            this.canvasView.drawOverlayRect(x0, y0, x1, y1, this._overlayColor());
+            // _computeResizeBounds returns inclusive; drawOverlayRect expects exclusive end
+            this.canvasView.drawOverlayRect(x0, y0, x1 + 1, y1 + 1, this._overlayColor());
             return;
         }
 
         if (this._moving) {
-            const dx = x - this._startX;
-            const dy = y - this._startY;
-            if (dx !== 0 || dy !== 0) {
-                this.doc.selection.moveMask(dx, dy);
-                this._startX = x;
-                this._startY = y;
+            let dx = x - this._startX;
+            let dy = y - this._startY;
+            // Snap selection edges to grid/guides
+            if (this._moveOrigBounds) {
+                const snap = this.canvasView.snapEdges({
+                    left: this._moveOrigBounds.left + dx,
+                    top: this._moveOrigBounds.top + dy,
+                    right: this._moveOrigBounds.right + dx,
+                    bottom: this._moveOrigBounds.bottom + dy,
+                });
+                dx += snap.dx;
+                dy += snap.dy;
+            }
+            const incDx = dx - this._moveAppliedDx;
+            const incDy = dy - this._moveAppliedDy;
+            if (incDx !== 0 || incDy !== 0) {
+                this.doc.selection.moveMask(incDx, incDy);
+                this._moveAppliedDx = dx;
+                this._moveAppliedDy = dy;
                 this.canvasView.invalidateSelectionEdges();
                 this.bus.emit('selection-changed');
             }
@@ -135,7 +158,7 @@ export class RectSelector extends BaseTool {
             this._startX = null;
             this._startY = null;
             this.canvasView.clearOverlay();
-            if (x1 >= x0 && y1 >= y0) {
+            if (x1 > x0 && y1 > y0) {
                 this.doc.selection.applyResize(x0, y0, x1, y1);
                 this.canvasView.invalidateSelectionEdges();
                 this.bus.emit('selection-changed');
@@ -167,23 +190,25 @@ export class RectSelector extends BaseTool {
             return;
         }
 
+        // Edge-based: coordinates are grid-line boundaries (exclusive end)
         const minX = Math.max(0, Math.min(this._startX, x));
         const minY = Math.max(0, Math.min(this._startY, y));
-        const maxX = Math.min(this.doc.width - 1, Math.max(this._startX, x));
-        const maxY = Math.min(this.doc.height - 1, Math.max(this._startY, y));
+        const maxX = Math.min(this.doc.width, Math.max(this._startX, x));
+        const maxY = Math.min(this.doc.height, Math.max(this._startY, y));
 
         this._startX = null;
         this._startY = null;
 
-        if (maxX - minX < 0 || maxY - minY < 0) return;
+        // Convert exclusive end to inclusive for Selection model
+        if (maxX - minX < 1 || maxY - minY < 1) return;
 
         const sel = this.doc.selection;
         if (this._selectionMode === 'add') {
-            sel.addRect(minX, minY, maxX, maxY);
+            sel.addRect(minX, minY, maxX - 1, maxY - 1);
         } else if (this._selectionMode === 'subtract') {
-            sel.subtractRect(minX, minY, maxX, maxY);
+            sel.subtractRect(minX, minY, maxX - 1, maxY - 1);
         } else {
-            sel.selectRect(minX, minY, maxX, maxY);
+            sel.selectRect(minX, minY, maxX - 1, maxY - 1);
         }
         this.canvasView.invalidateSelectionEdges();
         this.bus.emit('selection-changed');

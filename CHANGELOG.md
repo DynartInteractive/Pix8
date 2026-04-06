@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.2.0] - 2026-04-06
+
+### Added
+- **Configurable grid** -- user-settable grid size (default 16px) with 8/16/32 presets, toggled via View > Show Grid (Ctrl+')
+- **Snap to grid** -- tool coordinates snap to nearest grid line within 6 screen pixels, toggled via View > Snap to Grid (Ctrl+Shift+')
+- **Snap to guides** -- coordinates also snap to custom guide lines
+- **Rulers** -- horizontal and vertical pixel rulers with adaptive tick marks, toggled via View > Show Rulers (Alt+R)
+- **Custom guide lines** -- drag from a ruler to create blue guide lines; Shift+drag to move; drag back to ruler to remove; View > Show Guides (Ctrl+;) and Clear All Guides
+- **Edge-based selection boundaries** -- selections snap cleanly to grid cells (exclusive end coordinates, GIMP-style)
+- **Layer edge snapping on move** -- Move tool snaps layer content bounding box edges to grid lines and guides
+- **Selection edge snapping on move** -- moving a selection mask snaps its edges to grid lines and guides
+- **Grid Settings dialog** -- View > Grid Settings with size input and preset buttons
+
+### Fixed
+- Right-click brush no longer shows foreground color preview at start position
+- Frame thumbnails no longer corrupt when moving layers (missing clearRect)
+- 6-bit palette snap overflow producing index 256 at max white
+- Selection resize no longer shrinks by 1px per operation
+- Grid snap no longer pulls coordinates back inside document when cursor is outside
+- Selection preview (blue dashed) now renders above grid and guides
+
+### Changed
+- Consolidated grid, guides, and selection canvases into a single shared canvas
+- Selection preview overlay draws above grid/guides layer
+
 ## [1.1.0] - 2026-04-06
 
 ### Added

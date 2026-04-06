@@ -12,18 +12,13 @@
     z-index: 1;
 }
 
-#overlay-canvas {
+#grid-canvas {
     z-index: 2;
     pointer-events: none;
 }
 
-#selection-canvas {
+#overlay-canvas {
     z-index: 3;
-    pointer-events: none;
-}
-
-#grid-canvas {
-    z-index: 4;
     pointer-events: none;
 }
 

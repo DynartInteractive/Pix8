@@ -19,6 +19,27 @@ export class Layer {
         this.data.fill(TRANSPARENT);
     }
 
+    getContentBounds() {
+        let minX = this.width, minY = this.height, maxX = -1, maxY = -1;
+        for (let y = 0; y < this.height; y++) {
+            for (let x = 0; x < this.width; x++) {
+                if (this.data[y * this.width + x] !== TRANSPARENT) {
+                    if (x < minX) minX = x;
+                    if (x > maxX) maxX = x;
+                    if (y < minY) minY = y;
+                    if (y > maxY) maxY = y;
+                }
+            }
+        }
+        if (maxX < 0) return null;
+        return {
+            left: minX + this.offsetX,
+            top: minY + this.offsetY,
+            right: maxX + 1 + this.offsetX,
+            bottom: maxY + 1 + this.offsetY,
+        };
+    }
+
     // --- Layer-local coordinate access ---
 
     getPixel(x, y) {

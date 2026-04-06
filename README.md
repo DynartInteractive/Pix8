@@ -11,6 +11,8 @@ Try it online: https://pix8.dynart.net
 - **256-color indexed palette** -- all 256 entries (0-255) are usable colors, transparency is a separate sentinel value
 - **Photoshop-like layout** -- toolbar with flyout groups on the left, canvas in the center, layers and palette on the right
 - **Pixel-perfect zoom** -- nearest-neighbor interpolation at all zoom levels (1x-32x), pixel grid overlay at 12x+
+- **Configurable grid** -- user-settable grid size with snap-to-grid support (View > Grid Settings)
+- **Rulers and guides** -- pixel rulers along canvas edges; drag from ruler to create custom guide lines with snap support
 - **Independent layers** -- each layer has its own size and position, auto-extends when drawing outside bounds
 - **Layer operations** -- add, delete, reorder, duplicate, toggle visibility, solo, rename, opacity (0-100%)
 - **Unified export dialog** -- single "Export as..." dialog (Ctrl+Shift+E) with format selector (BMP, PCX, PNG, GIF, SPX) and format-specific options
@@ -18,9 +20,9 @@ Try it online: https://pix8.dynart.net
 - **Brush/Eraser line mode** -- hold Shift to draw straight lines, Ctrl to snap angles to 22.5-degree increments
 - **Brush right-click** -- draw with background color using right mouse button
 - **Pixel-perfect preview** -- all drawing tools show an 80% opacity preview of the exact pixels before committing
-- **Move tool** -- reposition layers and floating selections within the document
+- **Move tool** -- reposition layers and floating selections; snaps layer content edges to grid lines and guides
 - **Mirror tool** -- flip image or selection horizontally (click) or vertically (Shift+click)
-- **Selection tools** -- Rectangle and Ellipse selection with resizable handles at edges and corners
+- **Selection tools** -- Rectangle and Ellipse selection with resizable handles, edge-based boundaries that snap to grid/guides
 - **Selection modifiers** -- Shift+drag to add, Alt+drag to subtract; Selection menu: Select All, Deselect, Expand, Shrink, Select by Alpha
 - **Free Transform** -- move, resize, and rotate selected pixels with interactive handles (T shortcut), Ctrl snaps rotation to 22.5-degree increments
 - **Text tool** -- create text layers with configurable font, size, bold/italic/underline, anti-aliased palette-mapped rendering, and palette color picker (W shortcut)
@@ -106,6 +108,10 @@ npm start        # serve (in another terminal)
 | Ctrl+S | Save project |
 | Ctrl+Shift+E | Export as... |
 | Ctrl+O | Open file |
+| Ctrl+' | Toggle grid |
+| Ctrl+Shift+' | Toggle snap to grid |
+| Alt+R | Toggle rulers |
+| Ctrl+; | Toggle guides |
 
 ## Project Structure
 

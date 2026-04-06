@@ -707,6 +707,36 @@ class App {
                 this._showExportDialog();
                 return;
             }
+
+            // Ctrl+' = toggle grid
+            if (e.ctrlKey && !e.shiftKey && e.key === "'") {
+                e.preventDefault();
+                this.canvasView.gridVisible = !this.canvasView.gridVisible;
+                this.canvasView.render();
+                return;
+            }
+
+            // Ctrl+Shift+' = toggle snap
+            if (e.ctrlKey && e.shiftKey && e.key === "'") {
+                e.preventDefault();
+                this.canvasView.snapToGrid = !this.canvasView.snapToGrid;
+                return;
+            }
+
+            // Alt+R = toggle rulers
+            if (e.altKey && e.key === 'r') {
+                e.preventDefault();
+                this.canvasView.setRulersVisible(!this.canvasView.rulersVisible);
+                return;
+            }
+
+            // Ctrl+; = toggle guides
+            if (e.ctrlKey && e.key === ';') {
+                e.preventDefault();
+                this.canvasView.guides.visible = !this.canvasView.guides.visible;
+                this.canvasView.render();
+                return;
+            }
         });
     }
 
@@ -1171,18 +1201,125 @@ class App {
 
     _showViewMenu() {
         const anchor = document.querySelector('[data-menu="view"]');
+        const cv = this.canvasView;
         this._showDropdown(anchor, 'view', [
             { label: 'Zoom In', shortcut: '+', action: () => this._zoomStep(1) },
             { label: 'Zoom Out', shortcut: '-', action: () => this._zoomStep(-1) },
             '-',
             { label: 'Reset Zoom', action: () => {
-                this.canvasView.zoomIndex = 3;
-                this.canvasView.zoom = ZOOM_LEVELS[2];
-                this.canvasView._centerDocument();
-                this.bus.emit('zoom-changed', this.canvasView.zoom);
-                this.canvasView.render();
+                cv.zoomIndex = 3;
+                cv.zoom = ZOOM_LEVELS[2];
+                cv._centerDocument();
+                this.bus.emit('zoom-changed', cv.zoom);
+                cv.render();
             }},
+            '-',
+            { label: (cv.gridVisible ? '\u2713 ' : '') + 'Show Grid', shortcut: "Ctrl+'", action: () => {
+                cv.gridVisible = !cv.gridVisible; cv.render();
+            }},
+            { label: (cv.snapToGrid ? '\u2713 ' : '') + 'Snap to Grid', shortcut: "Ctrl+Shift+'", action: () => {
+                cv.snapToGrid = !cv.snapToGrid;
+            }},
+            { label: 'Grid Settings...', action: () => this._showGridSettingsDialog() },
+            '-',
+            { label: (cv.rulersVisible ? '\u2713 ' : '') + 'Show Rulers', shortcut: 'Alt+R', action: () => {
+                cv.setRulersVisible(!cv.rulersVisible);
+            }},
+            '-',
+            { label: (cv.guides.visible ? '\u2713 ' : '') + 'Show Guides', shortcut: 'Ctrl+;', action: () => {
+                cv.guides.visible = !cv.guides.visible; cv.render();
+            }},
+            { label: 'Clear All Guides', action: () => {
+                cv.guides.clear(); cv.render();
+            }, disabled: cv.guides.guides.length === 0 },
         ]);
+    }
+
+    _showGridSettingsDialog() {
+        const overlay = document.createElement('div');
+        overlay.className = 'palette-dialog-overlay';
+
+        const dialog = document.createElement('div');
+        dialog.className = 'palette-dialog';
+        dialog.style.cssText = 'width:280px;max-width:90vw;';
+
+        const header = document.createElement('div');
+        header.className = 'palette-dialog-header';
+        header.innerHTML = '<span>Grid Settings</span>';
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'palette-dialog-close';
+        closeBtn.textContent = '\u00D7';
+        closeBtn.addEventListener('click', () => overlay.remove());
+        header.appendChild(closeBtn);
+        dialog.appendChild(header);
+
+        const body = document.createElement('div');
+        body.style.cssText = 'display:flex;flex-direction:column;gap:8px;padding:8px 0;';
+
+        const rowStyle = 'display:flex;align-items:center;gap:8px;';
+        const labelStyle = 'font-size:13px;color:var(--text);width:70px;';
+        const inputStyle = 'flex:1;padding:3px 6px;background:var(--bg-input);border:1px solid var(--border);color:var(--text);border-radius:3px;font-size:13px;text-align:center;';
+
+        const sizeRow = document.createElement('div');
+        sizeRow.style.cssText = rowStyle;
+        const sizeLabel = document.createElement('label');
+        sizeLabel.textContent = 'Grid Size:';
+        sizeLabel.style.cssText = labelStyle;
+        const sizeInput = document.createElement('input');
+        sizeInput.type = 'number';
+        sizeInput.min = 2;
+        sizeInput.max = 256;
+        sizeInput.value = this.canvasView.gridSize;
+        sizeInput.style.cssText = inputStyle;
+        sizeRow.appendChild(sizeLabel);
+        sizeRow.appendChild(sizeInput);
+        body.appendChild(sizeRow);
+
+        // Presets
+        const presetRow = document.createElement('div');
+        presetRow.style.cssText = 'display:flex;gap:6px;';
+        for (const s of [8, 16, 32]) {
+            const btn = document.createElement('button');
+            btn.textContent = `${s}\u00D7${s}`;
+            btn.style.cssText = 'flex:1;padding:4px;font-size:12px;background:var(--bg-input);border:1px solid var(--border);border-radius:3px;color:var(--text);cursor:pointer;';
+            btn.addEventListener('click', () => { sizeInput.value = s; });
+            presetRow.appendChild(btn);
+        }
+        body.appendChild(presetRow);
+        dialog.appendChild(body);
+
+        const footer = document.createElement('div');
+        footer.className = 'palette-dialog-footer';
+        footer.style.justifyContent = 'flex-end';
+        footer.style.gap = '8px';
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.addEventListener('click', () => overlay.remove());
+        const okBtn = document.createElement('button');
+        okBtn.textContent = 'OK';
+        okBtn.className = 'primary';
+        okBtn.addEventListener('click', () => {
+            const val = Math.max(2, Math.min(256, parseInt(sizeInput.value) || 16));
+            this.canvasView.gridSize = val;
+            this.canvasView.render();
+            overlay.remove();
+        });
+        footer.appendChild(cancelBtn);
+        footer.appendChild(okBtn);
+        dialog.appendChild(footer);
+
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+
+        dialog.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') overlay.remove();
+            if (e.key === 'Enter') okBtn.click();
+        });
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) overlay.remove();
+        });
+        sizeInput.focus();
+        sizeInput.select();
     }
 
     _rotateImage(clockwise) {

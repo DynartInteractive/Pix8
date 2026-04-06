@@ -256,6 +256,7 @@ export class LayersPanel {
     _addLayer() {
         const before = this._snapshotMeta();
         const layer = this.doc.addLayer();
+        if (this.doc.animationEnabled) this.doc.saveCurrentFrame();
         const insertIndex = this.doc.activeLayerIndex;
         const after = this._snapshotMeta();
         this.undoManager.pushEntry({
@@ -278,6 +279,7 @@ export class LayersPanel {
         const removedIndex = this.doc.activeLayerIndex;
         const before = this._snapshotMeta();
         if (this.doc.removeLayer(removedIndex)) {
+            if (this.doc.animationEnabled) this.doc.saveCurrentFrame();
             const after = this._snapshotMeta();
             this.undoManager.pushEntry({
                 type: 'layer-delete',
@@ -300,6 +302,7 @@ export class LayersPanel {
         const to = from - dir;
         const before = this._snapshotMeta();
         if (this.doc.moveLayer(from, to)) {
+            if (this.doc.animationEnabled) this.doc.saveCurrentFrame();
             const after = this._snapshotMeta();
             this.undoManager.pushEntry({
                 type: 'layer-move',
@@ -317,6 +320,7 @@ export class LayersPanel {
     _duplicateLayer() {
         const before = this._snapshotMeta();
         const copy = this.doc.duplicateLayer(this.doc.activeLayerIndex);
+        if (this.doc.animationEnabled) this.doc.saveCurrentFrame();
         const insertIndex = this.doc.activeLayerIndex;
         const after = this._snapshotMeta();
         this.undoManager.pushEntry({

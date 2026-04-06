@@ -23,6 +23,9 @@ export class EllipseSelector extends BaseTool {
         this._selectionMode = 'replace';
         this._hoveringSelection = false;
         this._hoverHandle = null;
+        this._moveOrigBounds = null;
+        this._moveAppliedDx = 0;
+        this._moveAppliedDy = 0;
     }
 
     getCursor() {
@@ -67,6 +70,12 @@ export class EllipseSelector extends BaseTool {
 
             if (sel.active && sel.isSelected(x, y)) {
                 this._moving = true;
+                const b = sel.getBounds();
+                if (b) {
+                    this._moveOrigBounds = { left: b.minX, top: b.minY, right: b.maxX + 1, bottom: b.maxY + 1 };
+                }
+                this._moveAppliedDx = 0;
+                this._moveAppliedDy = 0;
             }
         }
 
@@ -111,21 +120,34 @@ export class EllipseSelector extends BaseTool {
         if (this._resizing) {
             const { x0, y0, x1, y1 } = this._computeResizeBounds(x, y);
             this.canvasView.clearOverlay();
+            // _computeResizeBounds returns inclusive; preview methods expect exclusive end
             if (this.doc.selection._pureShape === 'ellipse') {
-                this._drawEllipsePreview(x0, y0, x1, y1);
+                this._drawEllipsePreview(x0, y0, x1 + 1, y1 + 1);
             } else {
-                this.canvasView.drawOverlayRect(x0, y0, x1, y1, this._overlayColor());
+                this.canvasView.drawOverlayRect(x0, y0, x1 + 1, y1 + 1, this._overlayColor());
             }
             return;
         }
 
         if (this._moving) {
-            const dx = x - this._startX;
-            const dy = y - this._startY;
-            if (dx !== 0 || dy !== 0) {
-                this.doc.selection.moveMask(dx, dy);
-                this._startX = x;
-                this._startY = y;
+            let dx = x - this._startX;
+            let dy = y - this._startY;
+            if (this._moveOrigBounds) {
+                const snap = this.canvasView.snapEdges({
+                    left: this._moveOrigBounds.left + dx,
+                    top: this._moveOrigBounds.top + dy,
+                    right: this._moveOrigBounds.right + dx,
+                    bottom: this._moveOrigBounds.bottom + dy,
+                });
+                dx += snap.dx;
+                dy += snap.dy;
+            }
+            const incDx = dx - this._moveAppliedDx;
+            const incDy = dy - this._moveAppliedDy;
+            if (incDx !== 0 || incDy !== 0) {
+                this.doc.selection.moveMask(incDx, incDy);
+                this._moveAppliedDx = dx;
+                this._moveAppliedDy = dy;
                 this.canvasView.invalidateSelectionEdges();
                 this.bus.emit('selection-changed');
             }
@@ -150,7 +172,7 @@ export class EllipseSelector extends BaseTool {
             this._startX = null;
             this._startY = null;
             this.canvasView.clearOverlay();
-            if (x1 >= x0 && y1 >= y0) {
+            if (x1 > x0 && y1 > y0) {
                 this.doc.selection.applyResize(x0, y0, x1, y1);
                 this.canvasView.invalidateSelectionEdges();
                 this.bus.emit('selection-changed');
@@ -185,13 +207,20 @@ export class EllipseSelector extends BaseTool {
             return;
         }
 
+        // Edge-based: convert exclusive end to inclusive for Selection model
+        const minX = Math.min(x0, x);
+        const minY = Math.min(y0, y);
+        const maxX = Math.max(x0, x) - 1;
+        const maxY = Math.max(y0, y) - 1;
+        if (maxX < minX || maxY < minY) return;
+
         const sel = this.doc.selection;
         if (this._selectionMode === 'add') {
-            sel.addEllipse(x0, y0, x, y);
+            sel.addEllipse(minX, minY, maxX, maxY);
         } else if (this._selectionMode === 'subtract') {
-            sel.subtractEllipse(x0, y0, x, y);
+            sel.subtractEllipse(minX, minY, maxX, maxY);
         } else {
-            sel.selectEllipse(x0, y0, x, y);
+            sel.selectEllipse(minX, minY, maxX, maxY);
         }
         this.canvasView.invalidateSelectionEdges();
         this.bus.emit('selection-changed');

@@ -10,6 +10,7 @@ export class MoveTool extends BaseTool {
         this._startY = null;
         this._origOffsets = [];
         this._movingSelection = false;
+        this._contentBounds = null;
     }
 
     getCursor() {
@@ -46,12 +47,28 @@ export class MoveTool extends BaseTool {
                 this._origOffsets.push({ idx, ox: l.offsetX, oy: l.offsetY });
             }
         }
+
+        // Compute merged content bounds for edge snapping
+        this._contentBounds = null;
+        if (this._origOffsets.length > 0) {
+            let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
+            for (const entry of this._origOffsets) {
+                const bounds = this.doc.layers[entry.idx].getContentBounds();
+                if (bounds) {
+                    left = Math.min(left, bounds.left);
+                    top = Math.min(top, bounds.top);
+                    right = Math.max(right, bounds.right);
+                    bottom = Math.max(bottom, bounds.bottom);
+                }
+            }
+            if (left < Infinity) this._contentBounds = { left, top, right, bottom };
+        }
     }
 
     onPointerMove(x, y, e) {
         if (this._startX === null) return;
-        const dx = x - this._startX;
-        const dy = y - this._startY;
+        let dx = x - this._startX;
+        let dy = y - this._startY;
 
         if (this._movingSelection) {
             const sel = this.doc.selection;
@@ -59,6 +76,18 @@ export class MoveTool extends BaseTool {
             sel.moveFloating(this._origOffsets[0].ox + dx, this._origOffsets[0].oy + dy);
             this.canvasView.invalidateSelectionEdges();
             return;
+        }
+
+        // Snap layer content edges to grid/guides
+        if (this._contentBounds) {
+            const snap = this.canvasView.snapEdges({
+                left: this._contentBounds.left + dx,
+                top: this._contentBounds.top + dy,
+                right: this._contentBounds.right + dx,
+                bottom: this._contentBounds.bottom + dy,
+            });
+            dx += snap.dx;
+            dy += snap.dy;
         }
 
         for (const entry of this._origOffsets) {
@@ -85,5 +114,6 @@ export class MoveTool extends BaseTool {
         this._startX = null;
         this._startY = null;
         this._origOffsets = [];
+        this._contentBounds = null;
     }
 }

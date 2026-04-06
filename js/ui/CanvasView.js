@@ -1,6 +1,8 @@
 import { ZOOM_LEVELS, TRANSPARENT } from '../constants.js';
 import { Renderer } from '../render/Renderer.js';
 import { GridOverlay } from '../render/GridOverlay.js';
+import { Rulers } from './Rulers.js';
+import { Guides } from './Guides.js';
 
 export class CanvasView {
     constructor(doc, bus) {
@@ -10,13 +12,13 @@ export class CanvasView {
         this.container = document.getElementById('canvas-container');
         this.workCanvas = document.getElementById('work-canvas');
         this.overlayCanvas = document.getElementById('overlay-canvas');
-        this.selectionCanvas = document.getElementById('selection-canvas');
         this.gridCanvas = document.getElementById('grid-canvas');
         this.checkerboard = document.getElementById('checkerboard');
 
         this.workCtx = this.workCanvas.getContext('2d');
         this.overlayCtx = this.overlayCanvas.getContext('2d');
-        this.selectionCtx = this.selectionCanvas.getContext('2d');
+        // Grid, guides, and selection all share gridCanvas
+        this.selectionCtx = this.gridCanvas.getContext('2d');
 
         this.renderer = new Renderer(doc);
         this.gridOverlay = new GridOverlay(this.gridCanvas);
@@ -32,6 +34,16 @@ export class CanvasView {
         this.zoom = ZOOM_LEVELS[this.zoomIndex];
         this.panX = 0;
         this.panY = 0;
+
+        // Configurable grid
+        this.gridSize = 16;
+        this.gridVisible = false;
+        this.snapToGrid = false;
+
+        // Rulers & Guides
+        this.rulers = new Rulers();
+        this.rulersVisible = false;
+        this.guides = new Guides(this);
 
         // Marching ants state
         this._marchingAntsOffset = 0;
@@ -94,14 +106,24 @@ export class CanvasView {
         const w = this.container.clientWidth;
         const h = this.container.clientHeight;
 
-        for (const c of [this.workCanvas, this.overlayCanvas, this.selectionCanvas, this.gridCanvas]) {
+        for (const c of [this.workCanvas, this.overlayCanvas, this.gridCanvas]) {
             c.width = w;
             c.height = h;
             c.style.width = w + 'px';
             c.style.height = h + 'px';
         }
 
+        if (this.rulersVisible) {
+            this.rulers.resize(w, h);
+        }
+
         this.render();
+    }
+
+    setRulersVisible(visible) {
+        this.rulersVisible = visible;
+        this.rulers.setVisible(visible);
+        this._resize();
     }
 
     _centerDocument() {
@@ -149,8 +171,43 @@ export class CanvasView {
         const rect = this.container.getBoundingClientRect();
         const cx = screenX - rect.left;
         const cy = screenY - rect.top;
-        const docX = Math.floor((cx - this.panX) / this.zoom);
-        const docY = Math.floor((cy - this.panY) / this.zoom);
+        let docX = Math.floor((cx - this.panX) / this.zoom);
+        let docY = Math.floor((cy - this.panY) / this.zoom);
+
+        // Snap threshold in screen pixels, converted to doc pixels
+        const snapScreenPx = 6;
+        const snapDoc = snapScreenPx / this.zoom;
+
+        // Snap to grid lines
+        if (this.snapToGrid && this.gridSize > 1) {
+            const gs = this.gridSize;
+            const nearestX = Math.round(docX / gs) * gs;
+            const nearestY = Math.round(docY / gs) * gs;
+            if (Math.abs(docX - nearestX) <= snapDoc && nearestX >= 0 && nearestX <= this.doc.width) {
+                docX = nearestX;
+            }
+            if (Math.abs(docY - nearestY) <= snapDoc && nearestY >= 0 && nearestY <= this.doc.height) {
+                docY = nearestY;
+            }
+        }
+
+        // Snap to guides
+        if (this.guides.visible && this.guides.guides.length > 0) {
+            let bestDx = snapDoc + 1, bestDy = snapDoc + 1;
+            let snapX = docX, snapY = docY;
+            for (const g of this.guides.guides) {
+                if (g.axis === 'v') {
+                    const d = Math.abs(docX - g.position);
+                    if (d < bestDx) { bestDx = d; snapX = g.position; }
+                } else {
+                    const d = Math.abs(docY - g.position);
+                    if (d < bestDy) { bestDy = d; snapY = g.position; }
+                }
+            }
+            if (bestDx <= snapDoc) docX = snapX;
+            if (bestDy <= snapDoc) docY = snapY;
+        }
+
         return { x: docX, y: docY };
     }
 
@@ -165,6 +222,15 @@ export class CanvasView {
             this.container.style.cursor = 'grabbing';
             this.container.setPointerCapture(e.pointerId);
             return;
+        }
+
+        // Shift+click near a guide = move guide
+        if (e.button === 0 && e.shiftKey && this.guides.visible) {
+            const hit = this.guides.hitTest(e.clientX, e.clientY);
+            if (hit) {
+                this.guides.startMove(hit);
+                return;
+            }
         }
 
         if ((e.button === 0 || e.button === 2) && this._activeTool) {
@@ -200,6 +266,14 @@ export class CanvasView {
             this.render();
         } else if (!this._spaceDown && this._activeTool && this._activeTool.onHover) {
             this._activeTool.onHover(pos.x, pos.y);
+            // Show move cursor when Shift held near a guide
+            if (e.shiftKey && this.guides.visible) {
+                const hit = this.guides.hitTest(e.clientX, e.clientY);
+                if (hit) {
+                    this.container.style.cursor = hit.axis === 'h' ? 'ns-resize' : 'ew-resize';
+                    return;
+                }
+            }
             this.container.style.cursor = this._activeTool.getCursor();
         }
     }
@@ -247,6 +321,74 @@ export class CanvasView {
 
         this.bus.emit('zoom-changed', this.zoom);
         this.render();
+    }
+
+    snapEdges(bounds) {
+        const snapScreenPx = 6;
+        const snapDoc = snapScreenPx / this.zoom;
+        let bestDx = snapDoc + 1, bestDy = snapDoc + 1;
+        let snapDx = 0, snapDy = 0;
+
+        const checkX = (edgeX) => {
+            // Grid lines
+            if (this.snapToGrid && this.gridSize > 1) {
+                const nearest = Math.round(edgeX / this.gridSize) * this.gridSize;
+                const d = Math.abs(edgeX - nearest);
+                if (d < bestDx && d <= snapDoc) { bestDx = d; snapDx = nearest - edgeX; }
+            }
+            // Guide lines
+            if (this.guides.visible) {
+                for (const g of this.guides.guides) {
+                    if (g.axis !== 'v') continue;
+                    const d = Math.abs(edgeX - g.position);
+                    if (d < bestDx && d <= snapDoc) { bestDx = d; snapDx = g.position - edgeX; }
+                }
+            }
+        };
+
+        const checkY = (edgeY) => {
+            if (this.snapToGrid && this.gridSize > 1) {
+                const nearest = Math.round(edgeY / this.gridSize) * this.gridSize;
+                const d = Math.abs(edgeY - nearest);
+                if (d < bestDy && d <= snapDoc) { bestDy = d; snapDy = nearest - edgeY; }
+            }
+            if (this.guides.visible) {
+                for (const g of this.guides.guides) {
+                    if (g.axis !== 'h') continue;
+                    const d = Math.abs(edgeY - g.position);
+                    if (d < bestDy && d <= snapDoc) { bestDy = d; snapDy = g.position - edgeY; }
+                }
+            }
+        };
+
+        checkX(bounds.left);
+        checkX(bounds.right);
+        checkY(bounds.top);
+        checkY(bounds.bottom);
+
+        return {
+            dx: bestDx <= snapDoc ? snapDx : 0,
+            dy: bestDy <= snapDoc ? snapDy : 0,
+        };
+    }
+
+    _drawConfigGrid(docW, docH, zoom, panX, panY) {
+        const ctx = this.gridCanvas.getContext('2d');
+        const gs = this.gridSize;
+        ctx.strokeStyle = 'rgba(0, 0, 0, 1.0)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let x = 0; x <= docW; x += gs) {
+            const sx = Math.round(panX + x * zoom) + 0.5;
+            ctx.moveTo(sx, Math.round(panY) + 0.5);
+            ctx.lineTo(sx, Math.round(panY + docH * zoom) + 0.5);
+        }
+        for (let y = 0; y <= docH; y += gs) {
+            const sy = Math.round(panY + y * zoom) + 0.5;
+            ctx.moveTo(Math.round(panX) + 0.5, sy);
+            ctx.lineTo(Math.round(panX + docW * zoom) + 0.5, sy);
+        }
+        ctx.stroke();
     }
 
     drawBrushPreview(docX, docY) {
@@ -298,16 +440,16 @@ export class CanvasView {
         const ctx = this.overlayCtx;
         const minX = Math.min(x0, x1);
         const minY = Math.min(y0, y1);
-        const w = Math.abs(x1 - x0) + 1;
-        const h = Math.abs(y1 - y0) + 1;
+        const maxX = Math.max(x0, x1);
+        const maxY = Math.max(y0, y1);
         ctx.strokeStyle = color;
         ctx.lineWidth = 1;
         ctx.setLineDash([4, 4]);
         ctx.strokeRect(
             this.panX + minX * this.zoom + 0.5,
             this.panY + minY * this.zoom + 0.5,
-            w * this.zoom - 1,
-            h * this.zoom - 1
+            (maxX - minX) * this.zoom - 1,
+            (maxY - minY) * this.zoom - 1
         );
         ctx.setLineDash([]);
     }
@@ -366,17 +508,12 @@ export class CanvasView {
         this.checkerboard.style.height = (doc.height * zoom) + 'px';
         this.checkerboard.style.backgroundSize = `${cbSize}px ${cbSize}px`;
 
-        // Draw grid overlay
-        this.gridOverlay.draw(doc.width, doc.height, zoom, panX, panY);
+        // Draw grid, guides, selection on shared canvas
+        this._redrawOverlayTop();
 
-        // Redraw marching ants or transform box
-        if (this._activeTool && this._activeTool.isTransformActive) {
-            // Draw transform box instead of marching ants
-            const ctx = this.selectionCtx;
-            ctx.clearRect(0, 0, this.selectionCanvas.width, this.selectionCanvas.height);
-            this._activeTool.drawTransformBox(ctx, zoom, panX, panY);
-        } else if (this.doc.selection.active) {
-            this._drawMarchingAnts();
+        // Draw rulers (separate canvases)
+        if (this.rulersVisible) {
+            this.rulers.draw(doc.width, doc.height, zoom, panX, panY);
         }
 
         // Redraw brush preview if the active tool supports it
@@ -391,13 +528,29 @@ export class CanvasView {
         this._selectionEdges = null;
     }
 
+    _redrawOverlayTop() {
+        const { zoom, panX, panY, doc } = this;
+        const cw = this.gridCanvas.width;
+        const ch = this.gridCanvas.height;
+        this.gridOverlay.draw(doc.width, doc.height, zoom, panX, panY);
+        if (this.gridVisible && this.gridSize > 1) {
+            this._drawConfigGrid(doc.width, doc.height, zoom, panX, panY);
+        }
+        this.guides.draw(this.selectionCtx, cw, ch, zoom, panX, panY);
+        if (this._activeTool && this._activeTool.isTransformActive) {
+            this._activeTool.drawTransformBox(this.selectionCtx, zoom, panX, panY);
+        } else if (doc.selection.active) {
+            this._drawMarchingAnts();
+        }
+    }
+
     startMarchingAnts() {
         if (this._marchingAntsRAF) return;
         let lastTime = 0;
         const animate = (time) => {
             if (time - lastTime >= 100) { // ~10fps for smooth march
                 this._marchingAntsOffset = (this._marchingAntsOffset + 1) % 16;
-                this._drawMarchingAnts();
+                this._redrawOverlayTop();
                 lastTime = time;
             }
             this._marchingAntsRAF = requestAnimationFrame(animate);
@@ -410,8 +563,7 @@ export class CanvasView {
             cancelAnimationFrame(this._marchingAntsRAF);
             this._marchingAntsRAF = null;
         }
-        const ctx = this.selectionCtx;
-        ctx.clearRect(0, 0, this.selectionCanvas.width, this.selectionCanvas.height);
+        this.render();
     }
 
     _computeSelectionEdges() {
@@ -498,9 +650,8 @@ export class CanvasView {
 
     _drawMarchingAnts() {
         const ctx = this.selectionCtx;
-        const cw = this.selectionCanvas.width;
-        const ch = this.selectionCanvas.height;
-        ctx.clearRect(0, 0, cw, ch);
+        const cw = this.gridCanvas.width;
+        const ch = this.gridCanvas.height;
 
         // Don't draw ants during free transform — render() draws the transform box
         if (this._activeTool && this._activeTool.isTransformActive) {

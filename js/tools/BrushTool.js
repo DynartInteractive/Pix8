@@ -22,6 +22,7 @@ export class BrushTool extends BaseTool {
     onPointerDown(x, y, e) {
         const layer = this.doc.getActiveLayer();
         if (layer.locked) return;
+        this.canvasView.clearOverlay();
         this._lineMode = e.shiftKey;
         this._color = e.button === 2 ? this.doc.bgColorIndex : undefined;
         if (this._lineMode) {

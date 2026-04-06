@@ -1,4 +1,5 @@
 #frame-panel {
+    grid-area: frames;
     display: none;
     border-top: 1px solid var(--border);
     background: var(--bg-panel);

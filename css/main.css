@@ -88,13 +88,46 @@ html, body {
 #canvas-area {
     grid-area: canvas;
     background: var(--bg-primary);
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: var(--ruler-size, 0px) 1fr;
+    grid-template-rows: var(--ruler-size, 0px) 1fr auto;
+    grid-template-areas:
+        "corner  rulerh"
+        "rulerv  canvas"
+        "frames  frames";
     overflow: hidden;
 }
 
+#ruler-corner,
+#ruler-h,
+#ruler-v {
+    display: none;
+}
+
+.rulers-visible #ruler-corner {
+    display: block;
+    grid-area: corner;
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+}
+
+.rulers-visible #ruler-h {
+    display: block;
+    grid-area: rulerh;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+}
+
+.rulers-visible #ruler-v {
+    display: block;
+    grid-area: rulerv;
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border);
+}
+
 #canvas-container {
-    flex: 1;
+    grid-area: canvas;
     position: relative;
     overflow: hidden;
     cursor: crosshair;
