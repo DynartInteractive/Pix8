@@ -20,6 +20,15 @@ export class Layer {
     }
 
     getContentBounds() {
+        // Text layers use the full layer rect as content bounds
+        if (this.type === 'text') {
+            return {
+                left: this.offsetX,
+                top: this.offsetY,
+                right: this.offsetX + this.width,
+                bottom: this.offsetY + this.height,
+            };
+        }
         let minX = this.width, minY = this.height, maxX = -1, maxY = -1;
         for (let y = 0; y < this.height; y++) {
             for (let x = 0; x < this.width; x++) {

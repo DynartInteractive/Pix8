@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.1] - 2026-04-06
+
+### Fixed
+- Vertical ruler numbers no longer overlap tick lines
+- Text layers now snap edges to grid/guides when moved
+- Guide move cursor (ns-resize/ew-resize) now shows with all tools, not just those with hover preview
+
 ## [1.2.0] - 2026-04-06
 
 ### Added

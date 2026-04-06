@@ -264,8 +264,10 @@ export class CanvasView {
             this._lastMoveEvent = e;
             this._activeTool.onPointerMove(pos.x, pos.y, e);
             this.render();
-        } else if (!this._spaceDown && this._activeTool && this._activeTool.onHover) {
-            this._activeTool.onHover(pos.x, pos.y);
+        } else if (!this._spaceDown && this._activeTool) {
+            if (this._activeTool.onHover) {
+                this._activeTool.onHover(pos.x, pos.y);
+            }
             // Show move cursor when Shift held near a guide
             if (e.shiftKey && this.guides.visible) {
                 const hit = this.guides.hitTest(e.clientX, e.clientY);

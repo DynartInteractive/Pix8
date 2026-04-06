@@ -93,7 +93,7 @@ export class Rulers {
             ctx.stroke();
             if (isMajor) {
                 ctx.save();
-                ctx.translate(2, sy + 2);
+                ctx.translate(2, sy - 3);
                 ctx.rotate(-Math.PI / 2);
                 ctx.textBaseline = 'top';
                 ctx.fillText(String(d), 0, 0);
