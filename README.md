@@ -1,6 +1,6 @@
 # Pix8
 
-A browser-based 256-color indexed pixel art editor inspired by VGA-era graphics tools. Built with vanilla JavaScript, HTML, and CSS -- no frameworks, no bundler.
+A browser-based 256-color indexed pixel art editor inspired by VGA-era graphics tools. Built with vanilla JavaScript and webpack.
 
 ![Pix8 Screenshot](screenshot-v3.png)
 
@@ -10,55 +10,62 @@ A browser-based 256-color indexed pixel art editor inspired by VGA-era graphics 
 - **Photoshop-like layout** -- toolbar with flyout groups on the left, canvas in the center, layers and palette on the right
 - **Pixel-perfect zoom** -- nearest-neighbor interpolation at all zoom levels (1x-32x), pixel grid overlay at 12x+
 - **Independent layers** -- each layer has its own size and position, auto-extends when drawing outside bounds
-- **Layer operations** -- add, delete (with confirmation), reorder, duplicate, toggle visibility, solo (right-click eye icon), rename (double-click)
+- **Layer operations** -- add, delete, reorder, duplicate, toggle visibility, solo, rename, opacity (0-100%)
 - **Drawing tools** -- Brush, Eraser, Color Picker, Line, Rectangle, Filled Rectangle, Ellipse, Filled Ellipse, Flood Fill
 - **Brush right-click** -- draw with background color using right mouse button
 - **Pixel-perfect preview** -- all drawing tools show an 80% opacity preview of the exact pixels before committing
 - **Move tool** -- reposition layers and floating selections within the document
 - **Mirror tool** -- flip image or selection horizontally (click) or vertically (Shift+click)
 - **Selection tools** -- Rectangle and Ellipse selection with resizable handles at edges and corners
-- **Selection modifiers** -- Shift+drag to add to selection, Alt+drag to subtract from selection
-- **Selection operations** -- move selection mask by dragging inside, click to deselect; Selection menu: Select All, Deselect, Expand, Shrink, Select by Alpha
-- **Free Transform** -- move, resize, and rotate selected pixels with interactive handles (T shortcut), Ctrl snaps rotation to 22.5-degree increments, commit with Enter, cancel with Escape
-- **Flood Fill** -- fill connected pixels with FG/BG color (G shortcut), respects selection boundaries
-- **Line snapping** -- hold Ctrl while drawing lines to snap to nearest 22.5-degree angle (horizontal, vertical, diagonal)
-- **Eraser line mode** -- hold Shift to erase in a straight line, Ctrl to snap angle
-- **Multi-document tabs** -- open multiple documents in tabs, each with independent layers, palette, undo history, and zoom/pan state
-- **Clipboard** -- Cut (Ctrl+X), Copy (Ctrl+C), Copy Merged (Ctrl+Shift+C), Paste (Ctrl+V), Paste in Place (Ctrl+Shift+V); paste creates a new layer with automatic palette color remapping between documents
-- **System clipboard paste** -- Ctrl+V reads images from system clipboard, maps to current palette with dithering options (None/Floyd-Steinberg/Ordered), pastes as new layer
-- **Truecolor image import** -- File > Open supports PNG/JPG/GIF/WebP with quantization dialog (color count + dithering mode)
-- **Text tool** -- create text layers with configurable font, size, bold/italic/underline, and color (W shortcut); click text layer to edit, palette color picker in dialog
-- **Anti-aliased text** -- text layers support anti-aliased rendering with automatic palette color mapping (enabled by default)
-- **Convert to Bitmap** -- Layer menu option to rasterize text layers to pixel data, respects anti-aliasing
-- **Brush capture** -- set brush from selection (Ctrl+B) to capture pixels as a custom brush stamp
-- **GrafX2-style palette editor** -- full palette management dialog with toolbar, vertical RGB sliders, range selection (drag to select), color preview strip
-- **Palette operations** -- Swap, X-Swap (with pixel remap), Copy, Flip, X-Flip, Neg, Gray, Spread, Merge, Sort (Hue/Lightness/Histogram), Reduce (median-cut), Zap Unused, Used highlight
-- **6-bit per channel mode** -- VGA-era 0-63 color range with automatic conversion, checkbox toggle with confirmation
-- **Palette Load/Save** -- load from PAL/BMP/PCX, save to PAL (6-bit: raw 768-byte binary with 0-63 values, 8-bit: JASC-PAL text with 0-255 values)
-- **Palette undo** -- per-operation undo within the dialog, plus document-level undo on OK (Ctrl+Z reverts entire palette edit session)
-- **Color picker** -- samples from the merged visible image, not just the active layer
-- **Image rotation** -- Image menu: Rotate Left / Rotate Right (90-degree, affects all layers, swaps dimensions)
-- **Layer menu** -- Merge All (flatten), Merge Selected (Ctrl+click layers to multi-select), Convert to Bitmap (text layers)
-- **Multi-layer selection** -- Ctrl+click layers in the panel to select multiple, active layer always selected, used for Merge Selected
-- **Layer opacity** -- per-layer opacity (0-100%) with palette-mapped blending, slider in layers panel
-- **Frame animation** -- sprite-sheet animation with per-frame layer pixel data, opacity, and text data; frame timeline panel with thumbnails, play/stop, per-frame tag and delay
-- **Animation menu** -- enable/disable animation; frame panel with add, delete, copy, reorder, play, stop controls
-- **Desktop-style menus** -- click to open, click again to close, hover to switch between open menus; same for toolbar flyout groups
-- **Undo/Redo** -- Ctrl+Z / Ctrl+Shift+Z, 50-step history (includes layer geometry and selection changes)
-- **File I/O** -- save/load `.pix8` projects, import/export 8-bit BMP and PCX, export PNG, PAL palette format (raw 6-bit and JASC-PAL 8-bit), open truecolor images (PNG/JPG/GIF/WebP)
-- **Import options** -- import as layer, optional index 0 transparency
-- **Status bar hints** -- contextual tool hints showing available shortcuts and modifiers
-- **Mouse wheel on number inputs** -- scroll to increment/decrement any number input
-- **Dark theme** -- minimum 600px width
+- **Selection modifiers** -- Shift+drag to add, Alt+drag to subtract; Selection menu: Select All, Deselect, Expand, Shrink, Select by Alpha
+- **Free Transform** -- move, resize, and rotate selected pixels with interactive handles (T shortcut), Ctrl snaps rotation to 22.5-degree increments
+- **Text tool** -- create text layers with configurable font, size, bold/italic/underline, anti-aliased palette-mapped rendering, and palette color picker (W shortcut)
+- **Multi-document tabs** -- independent documents with separate layers, palette, undo history, and zoom/pan state
+- **Clipboard** -- Cut, Copy, Copy Merged, Paste, Paste in Place; automatic palette color remapping between documents; system clipboard paste with dithering
+- **Truecolor image import** -- File > Open supports PNG/JPG/GIF/WebP with median-cut quantization and dithering (None/Floyd-Steinberg/Ordered Bayer)
+- **Frame animation** -- sprite-sheet animation with per-frame pixel data; frame timeline with thumbnails, tag groups, play/pause/stop, tag-based playback
+- **Onion skinning** -- red-tinted previous frames, blue-tinted next frames; configurable opacity; extended mode (+-2 frames)
+- **GrafX2-style palette editor** -- range selection, vertical RGB sliders, batch operations (Swap, X-Swap, Copy, Flip, X-Flip, Neg, Gray, Spread, Merge, Sort, Reduce, Zap Unused, Used highlight), 6-bit VGA mode, palette Load/Save (PAL/BMP/PCX)
+- **Desktop-style menus** -- click to open, hover to switch, same for toolbar flyout groups
+- **Undo/Redo** -- Ctrl+Z / Ctrl+Shift+Z, 50-step history including palette edits
+- **SVG icons** -- all toolbar and panel icons are standalone SVG files in `images/` for easy customization
+
+### File Formats
+
+| Format | Import | Export | Notes |
+|--------|--------|--------|-------|
+| .pix8 | Yes | Yes | Native project format (layers, animation, palette) |
+| BMP | Yes | Yes | 8-bit indexed color |
+| PCX | Yes | Yes | 8-bit indexed color with RLE compression |
+| PNG | Yes | Yes | Truecolor import with quantization, indexed export |
+| JPG/GIF/WebP | Yes | -- | Truecolor import with quantization |
+| GIF | -- | Yes | Animated GIF89a with LZW compression |
+| SPX | -- | Yes | Sprite XML + PCX sprite sheet(s) as ZIP |
+| PAL | Yes | Yes | 6-bit raw binary or 8-bit JASC-PAL text |
+
+### Electron Desktop App
+
+```bash
+npm run electron     # Run as desktop app
+npm run dist:linux   # Build Linux AppImage/deb
+npm run dist:win     # Build Windows installer
+npm run dist:mac     # Build macOS dmg
+```
 
 ## Getting Started
 
 ```bash
 npm install
-npm start
+npm run build    # webpack production build
+npm start        # serve at http://localhost:3000
 ```
 
-Then open http://localhost:3000 in your browser.
+For development with auto-rebuild:
+
+```bash
+npm run dev      # webpack watch mode (in one terminal)
+npm start        # serve (in another terminal)
+```
 
 ## Keyboard Shortcuts
 
@@ -81,7 +88,7 @@ Then open http://localhost:3000 in your browser.
 | Space + drag | Pan canvas |
 | Middle mouse drag | Pan canvas |
 | Enter | Commit free transform |
-| Escape | Cancel free transform / deselect / commit floating selection |
+| Escape | Cancel / deselect / commit floating selection |
 | Delete | Clear selected pixels |
 | Ctrl+A | Select all |
 | Ctrl+D | Deselect |
@@ -96,12 +103,13 @@ Then open http://localhost:3000 in your browser.
 | Ctrl+S | Save project |
 | Ctrl+O | Open file |
 
-Shortcuts follow Photoshop conventions where applicable (V, B, E, I, M).
-
 ## Project Structure
 
 ```
 css/               CSS files (layout, dark theme, panel styles)
+dist/              Webpack output (bundle.js)
+docs/              Algorithm documentation
+images/            SVG icons (editable with Inkscape)
 js/
   app.js           Application bootstrap and wiring
   EventBus.js      Simple pub/sub event system
@@ -110,9 +118,10 @@ js/
   history/         Undo/redo manager
   render/          Compositing renderer and grid overlay
   tools/           All drawing and selection tools
-  ui/              UI panels (CanvasView, Toolbar, LayersPanel, PalettePanel, ColorSelector)
-  util/            Drawing algorithms (Bresenham, midpoint ellipse) and file I/O
+  ui/              UI panels (CanvasView, Toolbar, LayersPanel, PalettePanel, etc.)
+  util/            File I/O, quantization, GIF encoder, SPX exporter
 index.html         Single-page entry point
+webpack.config.js  Webpack configuration
 ```
 
 ## Technical Notes
@@ -120,6 +129,6 @@ index.html         Single-page entry point
 - All pixel data is stored as `Uint16Array` with values 0-255 for palette indices and 256 for transparent pixels
 - Layers are independently sized and positioned -- drawing outside bounds auto-extends with 16px growth padding
 - Rendering composites layers bottom-to-top via palette lookup into RGBA `ImageData`, drawn with `imageSmoothingEnabled = false`
-- Selection uses a document-sized `Uint8Array` mask with floating selection support for cut/copy/paste
-- BMP and PCX formats natively support 8-bit indexed color, so import/export preserves exact palette indices
-- No build step -- uses ES modules loaded directly by the browser
+- GIF export uses a native LZW encoder -- no external encoding libraries
+- SPX export uses skyline bin packing to minimize sprite sheet area within 320x200 VGA constraints
+- JSZip is the only runtime dependency (for SPX ZIP export)
