@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.10.0] - 2026-04-06
+## [1.0.0] - 2026-04-06
 
 ### Added
 - **HSV color picker** -- Photoshop-style saturation/value square with vertical hue strip in the palette editor, replacing the vertical RGB sliders
