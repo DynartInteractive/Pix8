@@ -12,7 +12,7 @@ export class EllipseSelector extends BaseTool {
         super(doc, bus, canvasView);
         this.name = 'Ellipse Select';
         this.shortcut = '';
-        this.icon = `<svg viewBox="0 0 20 20"><ellipse cx="10" cy="10" rx="8" ry="5" fill="none" stroke-dasharray="2,2"/></svg>`;
+        this.icon = 'images/icon-ellipseselect.svg';
         this.showsResizeHandles = true;
         this._startX = null;
         this._startY = null;

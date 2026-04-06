@@ -5,7 +5,7 @@ export class PolyBrushSelector extends BaseTool {
         super(doc, bus, canvasView);
         this.name = 'Poly Select';
         this.shortcut = '';
-        this.icon = `<svg viewBox="0 0 20 20"><polygon points="4,16 2,8 10,2 18,8 16,16" fill="none" stroke-dasharray="2,2"/></svg>`;
+        this.icon = 'images/icon-polybrushselect.svg';
         this._vertices = [];
         this._currentX = 0;
         this._currentY = 0;

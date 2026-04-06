@@ -22,7 +22,7 @@ export class FreeTransformTool extends BaseTool {
         super(doc, bus, canvasView);
         this.name = 'Free Transform';
         this.shortcut = 'T';
-        this.icon = `<svg viewBox="0 0 20 20"><rect x="3" y="3" width="14" height="14" fill="none" stroke-dasharray="2,2"/><rect x="1" y="1" width="3" height="3"/><rect x="8" y="1" width="3" height="3"/><rect x="16" y="1" width="3" height="3"/><rect x="16" y="8" width="3" height="3"/><rect x="16" y="16" width="3" height="3"/><rect x="8" y="16" width="3" height="3"/><rect x="1" y="16" width="3" height="3"/><rect x="1" y="8" width="3" height="3"/></svg>`;
+        this.icon = 'images/icon-freetransform.svg';
         this._active = false;
         this._previousToolName = null;
         this._sourceFloating = null; // backup for cancel

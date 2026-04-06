@@ -36,6 +36,7 @@ import {
     exportPCX, importPCX,
     exportPNG, downloadBlob
 } from './util/io.js';
+import { exportGIF } from './util/gif.js';
 
 import { quantizeImage, mapToPalette } from './util/quantize.js';
 
@@ -453,6 +454,7 @@ class App {
             this.canvasView.offscreen.height = h;
             this.canvasView.renderer = new (this.canvasView.renderer.constructor)(this.doc);
             this.canvasView._centerDocument();
+            this.framePanel.hide();
             this._createTab(nameInput.value.trim() || 'Untitled');
             this.bus.emit('palette-changed');
             this.bus.emit('fg-color-changed');
@@ -850,6 +852,7 @@ class App {
             { label: 'Export BMP', action: () => this._exportBMP() },
             { label: 'Export PCX', action: () => this._exportPCX() },
             { label: 'Export PNG', action: () => this._exportPNG() },
+            { label: 'Export GIF', action: () => this._exportGIF(), disabled: !this.doc.animationEnabled },
         ]);
     }
 
@@ -1849,6 +1852,11 @@ class App {
         this.canvasView._centerDocument();
         const name = filename.replace(/\.[^.]+$/, '');
         this._createTab(name);
+        if (newDoc.animationEnabled) {
+            this.framePanel.show();
+        } else {
+            this.framePanel.hide();
+        }
         this.bus.emit('palette-changed');
         this.bus.emit('fg-color-changed');
         this.bus.emit('bg-color-changed');
@@ -2245,6 +2253,161 @@ class App {
     async _exportPNG() {
         const blob = await exportPNG(this.doc, this.canvasView.renderer);
         downloadBlob(blob, 'export.png');
+    }
+
+    _exportGIF() {
+        if (!this.doc.animationEnabled || this.doc.frames.length === 0) return;
+        this.doc.saveCurrentFrame();
+
+        const overlay = document.createElement('div');
+        overlay.className = 'palette-dialog-overlay';
+
+        const dialog = document.createElement('div');
+        dialog.className = 'palette-dialog';
+        dialog.style.cssText = 'width:280px;max-width:90vw;';
+
+        // Header
+        const header = document.createElement('div');
+        header.className = 'palette-dialog-header';
+        header.innerHTML = '<span>Export GIF</span>';
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'palette-dialog-close';
+        closeBtn.textContent = '\u00D7';
+        closeBtn.addEventListener('click', () => overlay.remove());
+        header.appendChild(closeBtn);
+        dialog.appendChild(header);
+
+        // Body
+        const body = document.createElement('div');
+        body.style.cssText = 'display:flex;flex-direction:column;gap:8px;padding:8px 0;';
+
+        // Collect tag groups: { tag, indices[] }
+        const tagGroups = [];
+        const frames = this.doc.frames;
+        for (let i = 0; i < frames.length; i++) {
+            if (frames[i].tag) {
+                tagGroups.push({ tag: frames[i].tag, start: i });
+            }
+        }
+        // Compute end index for each group
+        for (let g = 0; g < tagGroups.length; g++) {
+            const nextStart = g + 1 < tagGroups.length ? tagGroups[g + 1].start : frames.length;
+            const indices = [];
+            for (let i = tagGroups[g].start; i < nextStart; i++) indices.push(i);
+            tagGroups[g].indices = indices;
+        }
+
+        // Frames selector
+        const framesRow = document.createElement('div');
+        framesRow.style.cssText = 'display:flex;align-items:center;gap:8px;';
+        const framesLabel = document.createElement('label');
+        framesLabel.textContent = 'Frames:';
+        framesLabel.style.cssText = 'font-size:13px;color:var(--text);width:60px;';
+        const framesSelect = document.createElement('select');
+        framesSelect.style.cssText = 'flex:1;padding:3px 6px;background:var(--bg-input);border:1px solid var(--border);color:var(--text);border-radius:3px;font-size:13px;';
+        const allOpt = document.createElement('option');
+        allOpt.value = 'all';
+        allOpt.textContent = `All frames (${frames.length})`;
+        framesSelect.appendChild(allOpt);
+        for (const g of tagGroups) {
+            const opt = document.createElement('option');
+            opt.value = g.tag;
+            opt.textContent = `${g.tag} (${g.indices.length} frames)`;
+            framesSelect.appendChild(opt);
+        }
+        framesRow.appendChild(framesLabel);
+        framesRow.appendChild(framesSelect);
+        body.appendChild(framesRow);
+
+        // Scale
+        const scaleRow = document.createElement('div');
+        scaleRow.style.cssText = 'display:flex;align-items:center;gap:8px;';
+        const scaleLabel = document.createElement('label');
+        scaleLabel.textContent = 'Scale:';
+        scaleLabel.style.cssText = 'font-size:13px;color:var(--text);width:60px;';
+        const scaleSelect = document.createElement('select');
+        scaleSelect.style.cssText = 'flex:1;padding:3px 6px;background:var(--bg-input);border:1px solid var(--border);color:var(--text);border-radius:3px;font-size:13px;';
+        for (const s of [1, 2, 3, 4, 5, 8, 10]) {
+            const opt = document.createElement('option');
+            opt.value = s;
+            opt.textContent = `${s}x (${this.doc.width * s} \u00D7 ${this.doc.height * s})`;
+            scaleSelect.appendChild(opt);
+        }
+        scaleRow.appendChild(scaleLabel);
+        scaleRow.appendChild(scaleSelect);
+        body.appendChild(scaleRow);
+
+        // Loop
+        const loopRow = document.createElement('div');
+        loopRow.style.cssText = 'display:flex;align-items:center;gap:8px;';
+        const loopLabel = document.createElement('label');
+        loopLabel.textContent = 'Loop:';
+        loopLabel.style.cssText = 'font-size:13px;color:var(--text);width:60px;';
+        const loopSelect = document.createElement('select');
+        loopSelect.style.cssText = 'flex:1;padding:3px 6px;background:var(--bg-input);border:1px solid var(--border);color:var(--text);border-radius:3px;font-size:13px;';
+        for (const [val, label] of [[0, 'Infinite'], [1, 'Once'], [2, '2 times'], [3, '3 times'], [5, '5 times']]) {
+            const opt = document.createElement('option');
+            opt.value = val;
+            opt.textContent = label;
+            loopSelect.appendChild(opt);
+        }
+        loopRow.appendChild(loopLabel);
+        loopRow.appendChild(loopSelect);
+        body.appendChild(loopRow);
+
+        // Info
+        const info = document.createElement('div');
+        info.style.cssText = 'font-size:11px;color:var(--text-dim);';
+        const updateInfo = () => {
+            const sel = framesSelect.value;
+            const count = sel === 'all' ? frames.length : tagGroups.find(g => g.tag === sel)?.indices.length || 0;
+            info.textContent = `${count} frame${count !== 1 ? 's' : ''} will be exported`;
+        };
+        updateInfo();
+        framesSelect.addEventListener('change', updateInfo);
+        body.appendChild(info);
+
+        dialog.appendChild(body);
+
+        // Footer
+        const footer = document.createElement('div');
+        footer.className = 'palette-dialog-footer';
+        footer.style.justifyContent = 'flex-end';
+        footer.style.gap = '8px';
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.addEventListener('click', () => overlay.remove());
+
+        const exportBtn = document.createElement('button');
+        exportBtn.textContent = 'Export';
+        exportBtn.className = 'primary';
+        exportBtn.addEventListener('click', () => {
+            const scale = parseInt(scaleSelect.value) || 1;
+            const loopCount = parseInt(loopSelect.value) || 0;
+            const sel = framesSelect.value;
+            const frameIndices = sel === 'all' ? null : tagGroups.find(g => g.tag === sel)?.indices;
+            const filename = sel === 'all' ? 'export.gif' : `${sel}.gif`;
+            overlay.remove();
+            const blob = exportGIF(this.doc, { scale, loopCount, frameIndices });
+            downloadBlob(blob, filename);
+        });
+
+        footer.appendChild(cancelBtn);
+        footer.appendChild(exportBtn);
+        dialog.appendChild(footer);
+
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+
+        // Keyboard
+        dialog.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') overlay.remove();
+            if (e.key === 'Enter') exportBtn.click();
+        });
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) overlay.remove();
+        });
     }
 }
 

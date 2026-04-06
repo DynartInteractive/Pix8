@@ -6,7 +6,7 @@ export class LineTool extends BaseTool {
         super(doc, bus, canvasView);
         this.name = 'Line';
         this.shortcut = 'L';
-        this.icon = `<svg viewBox="0 0 20 20"><line x1="3" y1="17" x2="17" y2="3"/></svg>`;
+        this.icon = 'images/icon-line.svg';
         this._startX = null;
         this._startY = null;
     }

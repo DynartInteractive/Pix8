@@ -78,7 +78,12 @@ export class Toolbar {
         const btn = document.createElement('button');
         btn.className = 'tool-btn';
         btn.title = tool.name + (tool.shortcut ? ` (${tool.shortcut})` : '');
-        btn.innerHTML = tool.icon;
+
+        const img = document.createElement('img');
+        img.src = tool.icon;
+        img.className = 'tool-icon';
+        img.draggable = false;
+        btn.appendChild(img);
 
         if (tool.shortcut && tool.shortcut.length === 1) {
             const hint = document.createElement('span');
@@ -168,8 +173,12 @@ export class Toolbar {
 
     _updateGroupButton(mainBtn, tool) {
         // Preserve the group indicator and shortcut hint, replace icon
-        const indicator = mainBtn.querySelector('.group-indicator');
-        mainBtn.innerHTML = tool.icon;
+        mainBtn.innerHTML = '';
+        const img = document.createElement('img');
+        img.src = tool.icon;
+        img.className = 'tool-icon';
+        img.draggable = false;
+        mainBtn.appendChild(img);
         mainBtn.title = tool.name + (tool.shortcut ? ` (${tool.shortcut})` : '');
         if (tool.shortcut && tool.shortcut.length === 1) {
             const hint = document.createElement('span');

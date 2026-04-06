@@ -16,6 +16,11 @@ export class Renderer {
         const buf = this._imageData.data;
         buf.fill(0);
 
+        // Onion skinning: render adjacent frames first at reduced opacity
+        if (this.doc.animationEnabled && this.doc.onionSkinning && this.doc.frames.length > 1) {
+            this._renderOnionFrames(buf, width, height, palette);
+        }
+
         // Composite layers bottom-to-top, respecting per-layer offset and size
         for (const layer of layers) {
             if (!layer.visible) continue;
@@ -160,6 +165,80 @@ export class Renderer {
         }
 
         return this._imageData;
+    }
+
+    _renderOnionFrames(buf, width, height, palette) {
+        const doc = this.doc;
+        const activeIdx = doc.activeFrameIndex;
+        const frames = doc.frames;
+        const onionOpacity = (doc.onionOpacity ?? 50) / 100;
+
+        // Indices to render: previous and next frame
+        const indices = [];
+        if (activeIdx > 0) indices.push(activeIdx - 1);
+        if (activeIdx < frames.length - 1) indices.push(activeIdx + 1);
+
+        // Save current layer state
+        const saved = doc.layers.map(l => ({
+            data: l.data, opacity: l.opacity, textData: l.textData,
+            offsetX: l.offsetX, offsetY: l.offsetY,
+            width: l.width, height: l.height,
+        }));
+
+        for (const fi of indices) {
+            const frame = frames[fi];
+            if (!frame.layerData) continue;
+
+            // Temporarily load frame data
+            doc._restoreLayersFromFrame(frame);
+
+            // Composite this frame's layers at reduced opacity
+            for (const layer of doc.layers) {
+                if (!layer.visible) continue;
+                if (layer.type === 'text' && layer.textData) continue; // skip text for onion
+
+                const lx0 = Math.max(0, layer.offsetX);
+                const ly0 = Math.max(0, layer.offsetY);
+                const lx1 = Math.min(width, layer.offsetX + layer.width);
+                const ly1 = Math.min(height, layer.offsetY + layer.height);
+
+                const layerData = layer.data;
+                const layerW = layer.width;
+                const layerOx = layer.offsetX;
+                const layerOy = layer.offsetY;
+
+                for (let dy = ly0; dy < ly1; dy++) {
+                    const localY = dy - layerOy;
+                    const localRowStart = localY * layerW - layerOx;
+                    const docRowStart = dy * width;
+                    for (let dx = lx0; dx < lx1; dx++) {
+                        const colorIndex = layerData[localRowStart + dx];
+                        if (colorIndex === TRANSPARENT) continue;
+                        const [r, g, b] = palette.getColor(colorIndex);
+                        const off = (docRowStart + dx) * 4;
+                        const br = buf[off + 3] ? buf[off] : 0;
+                        const bg = buf[off + 3] ? buf[off + 1] : 0;
+                        const bb = buf[off + 3] ? buf[off + 2] : 0;
+                        buf[off] = Math.round(r * onionOpacity + br * (1 - onionOpacity));
+                        buf[off + 1] = Math.round(g * onionOpacity + bg * (1 - onionOpacity));
+                        buf[off + 2] = Math.round(b * onionOpacity + bb * (1 - onionOpacity));
+                        buf[off + 3] = 255;
+                    }
+                }
+            }
+        }
+
+        // Restore current layer state
+        for (let i = 0; i < doc.layers.length && i < saved.length; i++) {
+            const s = saved[i];
+            doc.layers[i].data = s.data;
+            doc.layers[i].opacity = s.opacity;
+            doc.layers[i].textData = s.textData;
+            doc.layers[i].offsetX = s.offsetX;
+            doc.layers[i].offsetY = s.offsetY;
+            doc.layers[i].width = s.width;
+            doc.layers[i].height = s.height;
+        }
     }
 
     _compositeTextLayer(layer, palette, buf, docW, docH) {

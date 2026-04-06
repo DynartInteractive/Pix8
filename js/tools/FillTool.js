@@ -6,7 +6,7 @@ export class FillTool extends BaseTool {
         super(doc, bus, canvasView);
         this.name = 'Fill';
         this.shortcut = 'G';
-        this.icon = `<svg viewBox="0 0 20 20"><path d="M4 8h9v7a2 2 0 01-2 2H6a2 2 0 01-2-2V8z"/><path d="M3 8h11l-1-3H4L3 8z"/><path d="M7 5V3"/><path d="M15 10c1 2 2 3 2 4.5a2 2 0 01-4 0c0-1.5 1-2.5 2-4.5z"/></svg>`;
+        this.icon = 'images/icon-fill.svg';
     }
 
     getCursor() {

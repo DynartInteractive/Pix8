@@ -6,7 +6,7 @@ export class MirrorTool extends BaseTool {
         super(doc, bus, canvasView);
         this.name = 'Mirror';
         this.shortcut = '';
-        this.icon = `<svg viewBox="0 0 20 20"><line x1="10" y1="2" x2="10" y2="18" stroke="currentColor" stroke-width="1" stroke-dasharray="2,1"/><polygon points="3,7 7,4 7,10" fill="currentColor"/><polygon points="17,7 13,4 13,10" fill="currentColor"/></svg>`;
+        this.icon = 'images/icon-mirror.svg';
         this._shiftDown = false;
         this._onKeyDown = (e) => { if (e.key === 'Shift') { this._shiftDown = true; this._updateCursor(); } };
         this._onKeyUp = (e) => { if (e.key === 'Shift') { this._shiftDown = false; this._updateCursor(); } };

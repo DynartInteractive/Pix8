@@ -6,7 +6,7 @@ export class FilledRectTool extends BaseTool {
         super(doc, bus, canvasView);
         this.name = 'Filled Rect';
         this.shortcut = 'Shift+U';
-        this.icon = `<svg viewBox="0 0 20 20"><rect x="3" y="4" width="14" height="12" fill="currentColor" stroke="none"/></svg>`;
+        this.icon = 'images/icon-filledrect.svg';
         this._startX = null;
         this._startY = null;
     }

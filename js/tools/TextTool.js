@@ -5,9 +5,7 @@ export class TextTool extends BaseTool {
         super(doc, bus, canvasView);
         this.name = 'Text';
         this.shortcut = 'W';
-        this.icon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <text x="5" y="18" font-size="18" font-weight="bold" fill="currentColor" stroke="none">T</text>
-        </svg>`;
+        this.icon = 'images/icon-text.svg';
     }
 
     onPointerDown(x, y, e) {

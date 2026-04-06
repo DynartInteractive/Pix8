@@ -8,7 +8,7 @@
 #frame-panel.visible {
     display: flex;
     flex-direction: column;
-    height: 90px;
+    height: 100px;
 }
 
 .frame-panel-header {
@@ -31,7 +31,7 @@
     display: flex;
     overflow-x: auto;
     gap: 4px;
-    padding: 4px;
+    padding: 12px 4px 4px 4px;
     flex: 1;
     align-items: start;
 }
@@ -67,4 +67,25 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.frame-thumb {
+    position: relative;
+}
+
+.frame-tag-label {
+    position: absolute;
+    top: -11px;
+    left: 0;
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--accent);
+    white-space: nowrap;
+    user-select: none;
+    z-index: 1;
+}
+
+.frame-tag-label.active-tag {
+    z-index: 2;
+    color: var(--text-bright, #fff);
 }

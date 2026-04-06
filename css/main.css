@@ -192,3 +192,14 @@ html, body {
     background: var(--accent);
     color: var(--text-bright);
 }
+
+.icon-btn .panel-icon {
+    width: 14px;
+    height: 14px;
+    filter: invert(0.8);
+    pointer-events: none;
+}
+
+.icon-btn:disabled .panel-icon {
+    opacity: 0.4;
+}
