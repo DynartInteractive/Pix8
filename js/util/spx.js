@@ -122,18 +122,42 @@ export function exportSPX(doc, options = {}) {
         tagGroups[g].frames = croppedFrames.slice(tagGroups[g].start, nextStart);
     }
 
-    // --- 3. Skyline pack all frames into PCX sheets (max 320x200) ---
-    // Sort frames by height descending for better packing, but keep
-    // original indices so tag groups stay coherent.
+    // --- 3. Deduplicate identical frames ---
+    // Frames with identical pixel data share the same sheet position.
+    const uniqueFrames = []; // frames that need their own slot
+    const dupeMap = new Map(); // hash -> first frame with that hash
 
-    // Collect all frames with their original index for back-reference
-    const allFrames = croppedFrames.map((cf, i) => ({ cf, origIdx: i }));
-    // Sort by height descending, then width descending
-    allFrames.sort((a, b) => (b.cf.cropH - a.cf.cropH) || (b.cf.cropW - a.cf.cropW));
+    for (const cf of croppedFrames) {
+        // Hash: dimensions + pixel content
+        let hash = `${cf.cropW}x${cf.cropH}:`;
+        const px = cf.pixels;
+        // Simple FNV-1a-like hash of pixel data
+        let h = 2166136261;
+        for (let i = 0; i < px.length; i++) {
+            h ^= px[i];
+            h = Math.imul(h, 16777619);
+        }
+        hash += h >>> 0;
 
-    const packers = []; // array of SkylinePacker
+        const existing = dupeMap.get(hash);
+        if (existing && existing.cropW === cf.cropW && existing.cropH === cf.cropH &&
+            existing.pixels.length === px.length && existing.pixels.every((v, i) => v === px[i])) {
+            // Duplicate — will copy position after packing
+            cf._dupeOf = existing;
+        } else {
+            dupeMap.set(hash, cf);
+            uniqueFrames.push(cf);
+        }
+    }
 
-    for (const { cf } of allFrames) {
+    // --- 4. Skyline pack unique frames into PCX sheets (max 320x200) ---
+    // Sort by height descending for better packing.
+    const sortedUnique = uniqueFrames.map(cf => ({ cf }));
+    sortedUnique.sort((a, b) => (b.cf.cropH - a.cf.cropH) || (b.cf.cropW - a.cf.cropW));
+
+    const packers = [];
+
+    for (const { cf } of sortedUnique) {
         let placed = false;
         // Try to fit in existing sheets
         for (let si = 0; si < packers.length; si++) {
@@ -161,6 +185,15 @@ export function exportSPX(doc, options = {}) {
                 cf.imageIndex = packers.length;
             }
             packers.push(packer);
+        }
+    }
+
+    // Copy positions from originals to duplicate frames
+    for (const cf of croppedFrames) {
+        if (cf._dupeOf) {
+            cf.sheetX = cf._dupeOf.sheetX;
+            cf.sheetY = cf._dupeOf.sheetY;
+            cf.imageIndex = cf._dupeOf.imageIndex;
         }
     }
 
