@@ -1,4 +1,5 @@
 import { Renderer } from '../render/Renderer.js';
+import Dialog from './Dialog.js';
 
 export class FramePanel {
     constructor(doc, bus) {
@@ -279,30 +280,24 @@ export class FramePanel {
     }
 
     _editFrame(index, frame) {
-        // Create modal dialog for frame properties
-        const overlay = document.createElement('div');
-        overlay.className = 'palette-dialog-overlay';
+        const dlg = Dialog.create({
+            title: `Frame ${index + 1} Properties`,
+            width: '260px',
+            buttons: [
+                { label: 'Cancel' },
+                { label: 'OK', primary: true, onClick: () => {
+                    frame.tag = tagInput.value.trim();
+                    frame.delay = Math.max(1, parseInt(delayInput.value) || 100);
+                    this.render();
+                    dlg.close();
+                }},
+            ],
+            enterButton: 1,
+        });
 
-        const dialog = document.createElement('div');
-        dialog.className = 'palette-dialog';
-        dialog.style.cssText = 'width:260px;max-width:90vw;';
-
-        // Header
-        const header = document.createElement('div');
-        header.className = 'palette-dialog-header';
-        header.innerHTML = `<span>Frame ${index + 1} Properties</span>`;
-        const closeBtn = document.createElement('button');
-        closeBtn.className = 'palette-dialog-close';
-        closeBtn.textContent = '\u00D7';
-        closeBtn.addEventListener('click', close);
-        header.appendChild(closeBtn);
-        dialog.appendChild(header);
-
-        // Body
-        const body = document.createElement('div');
+        const body = dlg.body;
         body.style.cssText = 'display:flex;flex-direction:column;gap:8px;padding:8px 0;';
 
-        // Tag input
         const tagRow = document.createElement('div');
         tagRow.style.cssText = 'display:flex;align-items:center;gap:8px;';
         const tagLabel = document.createElement('label');
@@ -317,7 +312,6 @@ export class FramePanel {
         tagRow.appendChild(tagInput);
         body.appendChild(tagRow);
 
-        // Delay input
         const delayRow = document.createElement('div');
         delayRow.style.cssText = 'display:flex;align-items:center;gap:8px;';
         const delayLabel = document.createElement('label');
@@ -337,54 +331,7 @@ export class FramePanel {
         delayRow.appendChild(delayUnit);
         body.appendChild(delayRow);
 
-        dialog.appendChild(body);
-
-        // Footer
-        const footer = document.createElement('div');
-        footer.className = 'palette-dialog-footer';
-        footer.style.justifyContent = 'flex-end';
-        footer.style.gap = '8px';
-
-        const cancelBtn = document.createElement('button');
-        cancelBtn.textContent = 'Cancel';
-        cancelBtn.addEventListener('click', close);
-
-        const okBtn = document.createElement('button');
-        okBtn.textContent = 'OK';
-        okBtn.className = 'primary';
-        okBtn.addEventListener('click', () => {
-            frame.tag = tagInput.value.trim();
-            frame.delay = Math.max(1, parseInt(delayInput.value) || 100);
-            this.render();
-            close();
-        });
-
-        footer.appendChild(cancelBtn);
-        footer.appendChild(okBtn);
-        dialog.appendChild(footer);
-
-        overlay.appendChild(dialog);
-        document.body.appendChild(overlay);
-
-        // Focus tag input
-        tagInput.focus();
-        tagInput.select();
-
-        // Keyboard handling
-        const onKey = (e) => {
-            if (e.key === 'Escape') close();
-            if (e.key === 'Enter' && e.target !== tagInput) okBtn.click();
-        };
-        dialog.addEventListener('keydown', onKey);
-
-        // Click overlay to close
-        overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) close();
-        });
-
-        function close() {
-            overlay.remove();
-        }
+        dlg.show(tagInput);
     }
 
     _getTagFrameIndices() {

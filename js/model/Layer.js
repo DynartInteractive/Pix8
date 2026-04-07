@@ -155,7 +155,7 @@ export class Layer {
         copy.opacity = this.opacity;
         copy.type = this.type;
         copy.textData = this.textData ? { ...this.textData } : null;
-        copy.data.set(this.data);
+        copy.data = this.data.slice();
         return copy;
     }
 

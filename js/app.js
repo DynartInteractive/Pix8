@@ -11,6 +11,7 @@ import { PalettePanel } from './ui/PalettePanel.js';
 import { LayersPanel } from './ui/LayersPanel.js';
 import { TabBar } from './ui/TabBar.js';
 import { FramePanel } from './ui/FramePanel.js';
+import Dialog from './ui/Dialog.js';
 
 import { UndoManager } from './history/UndoManager.js';
 
@@ -56,72 +57,50 @@ class App {
     }
 
     _showNewDocDialog() {
-        // Simple modal dialog for new document
-        const overlay = document.createElement('div');
-        overlay.style.cssText = `
-            position: fixed; inset: 0; background: rgba(0,0,0,0.7);
-            display: flex; align-items: center; justify-content: center; z-index: 1000;
+        const dlg = Dialog.create({
+            title: 'New Document',
+            width: '300px',
+            buttons: [
+                { label: 'Create', primary: true, onClick: () => {
+                    const w = Math.max(1, Math.min(1024, parseInt(wInput.value) || 64));
+                    const h = Math.max(1, Math.min(1024, parseInt(hInput.value) || 64));
+                    dlg.close();
+                    this._init(w, h);
+                }},
+            ],
+            enterButton: 0,
+        });
+
+        const inputStyle = 'width:100%;padding:6px;background:var(--bg-input);border:1px solid var(--border);border-radius:3px;color:var(--text);font-size:13px;box-sizing:border-box;';
+        dlg.body.style.cssText = 'display:flex;flex-direction:column;gap:12px;padding:8px 0;';
+        dlg.body.innerHTML = `
+            <div>
+                <label style="display:block;font-size:12px;margin-bottom:4px;color:var(--text-dim);">Width (px)</label>
+                <input id="new-doc-w" type="number" value="64" min="1" max="1024" style="${inputStyle}">
+            </div>
+            <div>
+                <label style="display:block;font-size:12px;margin-bottom:4px;color:var(--text-dim);">Height (px)</label>
+                <input id="new-doc-h" type="number" value="64" min="1" max="1024" style="${inputStyle}">
+            </div>
+            <div style="display:flex;gap:8px;">
+                <button class="preset-btn" data-w="32" data-h="32" style="flex:1;padding:6px;background:var(--bg-input);border:1px solid var(--border);border-radius:3px;color:var(--text);cursor:pointer;">32x32</button>
+                <button class="preset-btn" data-w="64" data-h="64" style="flex:1;padding:6px;background:var(--bg-input);border:1px solid var(--border);border-radius:3px;color:var(--text);cursor:pointer;">64x64</button>
+                <button class="preset-btn" data-w="128" data-h="128" style="flex:1;padding:6px;background:var(--bg-input);border:1px solid var(--border);border-radius:3px;color:var(--text);cursor:pointer;">128x128</button>
+                <button class="preset-btn" data-w="256" data-h="256" style="flex:1;padding:6px;background:var(--bg-input);border:1px solid var(--border);border-radius:3px;color:var(--text);cursor:pointer;">256x256</button>
+            </div>
         `;
 
-        const dialog = document.createElement('div');
-        dialog.style.cssText = `
-            background: var(--bg-panel, #2d2d30); border: 1px solid var(--border, #3c3c3c);
-            border-radius: 6px; padding: 24px; min-width: 300px; color: var(--text, #ccc);
-        `;
+        const wInput = dlg.body.querySelector('#new-doc-w');
+        const hInput = dlg.body.querySelector('#new-doc-h');
 
-        dialog.innerHTML = `
-            <h3 style="margin: 0 0 16px 0; font-size: 16px; color: #fff;">New Document</h3>
-            <div style="margin-bottom: 12px;">
-                <label style="display: block; font-size: 12px; margin-bottom: 4px; color: #aaa;">Width (px)</label>
-                <input id="new-doc-w" type="number" value="64" min="1" max="1024"
-                    style="width: 100%; padding: 6px; background: #3c3c3c; border: 1px solid #555;
-                    border-radius: 3px; color: #ccc; font-size: 13px;">
-            </div>
-            <div style="margin-bottom: 12px;">
-                <label style="display: block; font-size: 12px; margin-bottom: 4px; color: #aaa;">Height (px)</label>
-                <input id="new-doc-h" type="number" value="64" min="1" max="1024"
-                    style="width: 100%; padding: 6px; background: #3c3c3c; border: 1px solid #555;
-                    border-radius: 3px; color: #ccc; font-size: 13px;">
-            </div>
-            <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-                <button class="preset-btn" data-w="32" data-h="32" style="flex:1; padding: 6px; background: #3c3c3c; border: 1px solid #555; border-radius: 3px; color: #ccc; cursor: pointer;">32x32</button>
-                <button class="preset-btn" data-w="64" data-h="64" style="flex:1; padding: 6px; background: #3c3c3c; border: 1px solid #555; border-radius: 3px; color: #ccc; cursor: pointer;">64x64</button>
-                <button class="preset-btn" data-w="128" data-h="128" style="flex:1; padding: 6px; background: #3c3c3c; border: 1px solid #555; border-radius: 3px; color: #ccc; cursor: pointer;">128x128</button>
-                <button class="preset-btn" data-w="256" data-h="256" style="flex:1; padding: 6px; background: #3c3c3c; border: 1px solid #555; border-radius: 3px; color: #ccc; cursor: pointer;">256x256</button>
-            </div>
-            <button id="new-doc-ok" style="width: 100%; padding: 8px; background: #007acc;
-                border: none; border-radius: 3px; color: #fff; cursor: pointer; font-size: 13px;">Create</button>
-        `;
-
-        overlay.appendChild(dialog);
-        document.body.appendChild(overlay);
-
-        const wInput = dialog.querySelector('#new-doc-w');
-        const hInput = dialog.querySelector('#new-doc-h');
-
-        for (const btn of dialog.querySelectorAll('.preset-btn')) {
+        for (const btn of dlg.body.querySelectorAll('.preset-btn')) {
             btn.addEventListener('click', () => {
                 wInput.value = btn.dataset.w;
                 hInput.value = btn.dataset.h;
             });
         }
 
-        dialog.querySelector('#new-doc-ok').addEventListener('click', () => {
-            const w = Math.max(1, Math.min(1024, parseInt(wInput.value) || 64));
-            const h = Math.max(1, Math.min(1024, parseInt(hInput.value) || 64));
-            overlay.remove();
-            this._init(w, h);
-        });
-
-        // Allow Enter to submit
-        dialog.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                dialog.querySelector('#new-doc-ok').click();
-            }
-        });
-
-        wInput.focus();
-        wInput.select();
+        dlg.show(wInput);
     }
 
     _init(width, height) {
@@ -382,97 +361,73 @@ class App {
     }
 
     _newDocument() {
-        const overlay = document.createElement('div');
-        overlay.style.cssText = `
-            position: fixed; inset: 0; background: rgba(0,0,0,0.7);
-            display: flex; align-items: center; justify-content: center; z-index: 1000;
-        `;
-        const dialog = document.createElement('div');
-        dialog.style.cssText = `
-            background: var(--bg-panel, #2d2d30); border: 1px solid var(--border, #3c3c3c);
-            border-radius: 6px; padding: 24px; min-width: 300px; color: var(--text, #ccc);
-        `;
-        dialog.innerHTML = `
-            <h3 style="margin: 0 0 16px 0; font-size: 16px; color: #fff;">New Document</h3>
-            <div style="margin-bottom: 12px;">
-                <label style="display: block; font-size: 12px; margin-bottom: 4px; color: #aaa;">Name</label>
-                <input id="new-tab-name" type="text" value="Untitled"
-                    style="width: 100%; padding: 6px; background: #3c3c3c; border: 1px solid #555;
-                    border-radius: 3px; color: #ccc; font-size: 13px; box-sizing: border-box;">
+        const dlg = Dialog.create({
+            title: 'New Document',
+            width: '300px',
+            buttons: [
+                { label: 'Cancel' },
+                { label: 'Create', primary: true, onClick: () => {
+                    const w = Math.max(1, Math.min(1024, parseInt(wInput.value) || 64));
+                    const h = Math.max(1, Math.min(1024, parseInt(hInput.value) || 64));
+                    dlg.close();
+                    this._saveTabState();
+                    this.doc = new ImageDocument(w, h);
+                    this._setDocOnComponents(this.doc);
+                    this.undoManager.undoStack = [];
+                    this.undoManager.redoStack = [];
+                    this._clipboard = null;
+                    this.canvasView.offscreen.width = w;
+                    this.canvasView.offscreen.height = h;
+                    this.canvasView.renderer = new (this.canvasView.renderer.constructor)(this.doc);
+                    this.canvasView._centerDocument();
+                    this.framePanel.hide();
+                    this._createTab(nameInput.value.trim() || 'Untitled');
+                    this.bus.emit('palette-changed');
+                    this.bus.emit('fg-color-changed');
+                    this.bus.emit('bg-color-changed');
+                    this.bus.emit('layer-changed');
+                    this.bus.emit('document-changed');
+                    document.getElementById('status-size').textContent = `${w} x ${h}`;
+                }},
+            ],
+            enterButton: 1,
+        });
+
+        const inputStyle = 'width:100%;padding:6px;background:var(--bg-input);border:1px solid var(--border);border-radius:3px;color:var(--text);font-size:13px;box-sizing:border-box;';
+        dlg.body.style.cssText = 'display:flex;flex-direction:column;gap:12px;padding:8px 0;';
+        dlg.body.innerHTML = `
+            <div>
+                <label style="display:block;font-size:12px;margin-bottom:4px;color:var(--text-dim);">Name</label>
+                <input id="new-tab-name" type="text" value="Untitled" style="${inputStyle}">
             </div>
-            <div style="margin-bottom: 12px;">
-                <label style="display: block; font-size: 12px; margin-bottom: 4px; color: #aaa;">Width (px)</label>
-                <input id="new-tab-w" type="number" value="64" min="1" max="1024"
-                    style="width: 100%; padding: 6px; background: #3c3c3c; border: 1px solid #555;
-                    border-radius: 3px; color: #ccc; font-size: 13px;">
+            <div>
+                <label style="display:block;font-size:12px;margin-bottom:4px;color:var(--text-dim);">Width (px)</label>
+                <input id="new-tab-w" type="number" value="64" min="1" max="1024" style="${inputStyle}">
             </div>
-            <div style="margin-bottom: 12px;">
-                <label style="display: block; font-size: 12px; margin-bottom: 4px; color: #aaa;">Height (px)</label>
-                <input id="new-tab-h" type="number" value="64" min="1" max="1024"
-                    style="width: 100%; padding: 6px; background: #3c3c3c; border: 1px solid #555;
-                    border-radius: 3px; color: #ccc; font-size: 13px;">
-            </div>
-            <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-                <button class="preset-btn" data-w="32" data-h="32" style="flex:1; padding: 6px; background: #3c3c3c; border: 1px solid #555; border-radius: 3px; color: #ccc; cursor: pointer;">32x32</button>
-                <button class="preset-btn" data-w="64" data-h="64" style="flex:1; padding: 6px; background: #3c3c3c; border: 1px solid #555; border-radius: 3px; color: #ccc; cursor: pointer;">64x64</button>
-                <button class="preset-btn" data-w="128" data-h="128" style="flex:1; padding: 6px; background: #3c3c3c; border: 1px solid #555; border-radius: 3px; color: #ccc; cursor: pointer;">128x128</button>
-                <button class="preset-btn" data-w="256" data-h="256" style="flex:1; padding: 6px; background: #3c3c3c; border: 1px solid #555; border-radius: 3px; color: #ccc; cursor: pointer;">256x256</button>
+            <div>
+                <label style="display:block;font-size:12px;margin-bottom:4px;color:var(--text-dim);">Height (px)</label>
+                <input id="new-tab-h" type="number" value="64" min="1" max="1024" style="${inputStyle}">
             </div>
             <div style="display:flex;gap:8px;">
-                <button id="new-tab-cancel" style="flex:1; padding: 8px; background: #3c3c3c;
-                    border: 1px solid #555; border-radius: 3px; color: #ccc; cursor: pointer; font-size: 13px;">Cancel</button>
-                <button id="new-tab-ok" style="flex:1; padding: 8px; background: #007acc;
-                    border: none; border-radius: 3px; color: #fff; cursor: pointer; font-size: 13px;">Create</button>
+                <button class="preset-btn" data-w="32" data-h="32" style="flex:1;padding:6px;background:var(--bg-input);border:1px solid var(--border);border-radius:3px;color:var(--text);cursor:pointer;">32x32</button>
+                <button class="preset-btn" data-w="64" data-h="64" style="flex:1;padding:6px;background:var(--bg-input);border:1px solid var(--border);border-radius:3px;color:var(--text);cursor:pointer;">64x64</button>
+                <button class="preset-btn" data-w="128" data-h="128" style="flex:1;padding:6px;background:var(--bg-input);border:1px solid var(--border);border-radius:3px;color:var(--text);cursor:pointer;">128x128</button>
+                <button class="preset-btn" data-w="256" data-h="256" style="flex:1;padding:6px;background:var(--bg-input);border:1px solid var(--border);border-radius:3px;color:var(--text);cursor:pointer;">256x256</button>
             </div>
         `;
-        overlay.appendChild(dialog);
-        document.body.appendChild(overlay);
 
-        const nameInput = dialog.querySelector('#new-tab-name');
-        const wInput = dialog.querySelector('#new-tab-w');
-        const hInput = dialog.querySelector('#new-tab-h');
+        const nameInput = dlg.body.querySelector('#new-tab-name');
+        const wInput = dlg.body.querySelector('#new-tab-w');
+        const hInput = dlg.body.querySelector('#new-tab-h');
 
-        for (const btn of dialog.querySelectorAll('.preset-btn')) {
+        for (const btn of dlg.body.querySelectorAll('.preset-btn')) {
             btn.addEventListener('click', () => {
                 wInput.value = btn.dataset.w;
                 hInput.value = btn.dataset.h;
             });
         }
 
-        dialog.querySelector('#new-tab-cancel').addEventListener('click', () => overlay.remove());
-        overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
-
-        dialog.querySelector('#new-tab-ok').addEventListener('click', () => {
-            const w = Math.max(1, Math.min(1024, parseInt(wInput.value) || 64));
-            const h = Math.max(1, Math.min(1024, parseInt(hInput.value) || 64));
-            overlay.remove();
-            this._saveTabState();
-            this.doc = new ImageDocument(w, h);
-            this._setDocOnComponents(this.doc);
-            this.undoManager.undoStack = [];
-            this.undoManager.redoStack = [];
-            this._clipboard = null;
-            this.canvasView.offscreen.width = w;
-            this.canvasView.offscreen.height = h;
-            this.canvasView.renderer = new (this.canvasView.renderer.constructor)(this.doc);
-            this.canvasView._centerDocument();
-            this.framePanel.hide();
-            this._createTab(nameInput.value.trim() || 'Untitled');
-            this.bus.emit('palette-changed');
-            this.bus.emit('fg-color-changed');
-            this.bus.emit('bg-color-changed');
-            this.bus.emit('layer-changed');
-            this.bus.emit('document-changed');
-            document.getElementById('status-size').textContent = `${w} x ${h}`;
-        });
-
-        dialog.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') dialog.querySelector('#new-tab-ok').click();
-            if (e.key === 'Escape') overlay.remove();
-        });
-
-        nameInput.focus();
-        nameInput.select();
+        dlg.show(nameInput);
     }
 
     // ── Tool Hints ──────────────────────────────────────────────────
@@ -1259,29 +1214,26 @@ class App {
     }
 
     _showGridSettingsDialog() {
-        const overlay = document.createElement('div');
-        overlay.className = 'palette-dialog-overlay';
-
-        const dialog = document.createElement('div');
-        dialog.className = 'palette-dialog';
-        dialog.style.cssText = 'width:280px;max-width:90vw;';
-
-        const header = document.createElement('div');
-        header.className = 'palette-dialog-header';
-        header.innerHTML = '<span>Grid Settings</span>';
-        const closeBtn = document.createElement('button');
-        closeBtn.className = 'palette-dialog-close';
-        closeBtn.textContent = '\u00D7';
-        closeBtn.addEventListener('click', () => overlay.remove());
-        header.appendChild(closeBtn);
-        dialog.appendChild(header);
-
-        const body = document.createElement('div');
-        body.style.cssText = 'display:flex;flex-direction:column;gap:8px;padding:8px 0;';
+        const dlg = Dialog.create({
+            title: 'Grid Settings',
+            width: '280px',
+            buttons: [
+                { label: 'Cancel' },
+                { label: 'OK', primary: true, onClick: () => {
+                    const val = Math.max(2, Math.min(256, parseInt(sizeInput.value) || 16));
+                    this.canvasView.gridSize = val;
+                    this.canvasView.render();
+                    dlg.close();
+                }},
+            ],
+            enterButton: 1,
+        });
 
         const rowStyle = 'display:flex;align-items:center;gap:8px;';
         const labelStyle = 'font-size:13px;color:var(--text);width:70px;';
         const inputStyle = 'flex:1;padding:3px 6px;background:var(--bg-input);border:1px solid var(--border);color:var(--text);border-radius:3px;font-size:13px;text-align:center;';
+
+        dlg.body.style.cssText = 'display:flex;flex-direction:column;gap:8px;padding:8px 0;';
 
         const sizeRow = document.createElement('div');
         sizeRow.style.cssText = rowStyle;
@@ -1296,9 +1248,8 @@ class App {
         sizeInput.style.cssText = inputStyle;
         sizeRow.appendChild(sizeLabel);
         sizeRow.appendChild(sizeInput);
-        body.appendChild(sizeRow);
+        dlg.body.appendChild(sizeRow);
 
-        // Presets
         const presetRow = document.createElement('div');
         presetRow.style.cssText = 'display:flex;gap:6px;';
         for (const s of [8, 16, 32]) {
@@ -1308,41 +1259,9 @@ class App {
             btn.addEventListener('click', () => { sizeInput.value = s; });
             presetRow.appendChild(btn);
         }
-        body.appendChild(presetRow);
-        dialog.appendChild(body);
+        dlg.body.appendChild(presetRow);
 
-        const footer = document.createElement('div');
-        footer.className = 'palette-dialog-footer';
-        footer.style.justifyContent = 'flex-end';
-        footer.style.gap = '8px';
-        const cancelBtn = document.createElement('button');
-        cancelBtn.textContent = 'Cancel';
-        cancelBtn.addEventListener('click', () => overlay.remove());
-        const okBtn = document.createElement('button');
-        okBtn.textContent = 'OK';
-        okBtn.className = 'primary';
-        okBtn.addEventListener('click', () => {
-            const val = Math.max(2, Math.min(256, parseInt(sizeInput.value) || 16));
-            this.canvasView.gridSize = val;
-            this.canvasView.render();
-            overlay.remove();
-        });
-        footer.appendChild(cancelBtn);
-        footer.appendChild(okBtn);
-        dialog.appendChild(footer);
-
-        overlay.appendChild(dialog);
-        document.body.appendChild(overlay);
-
-        dialog.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') overlay.remove();
-            if (e.key === 'Enter') okBtn.click();
-        });
-        overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) overlay.remove();
-        });
-        sizeInput.focus();
-        sizeInput.select();
+        dlg.show(sizeInput);
     }
 
     _rotateImage(clockwise) {
@@ -1632,32 +1551,54 @@ class App {
     }
 
     _showTextDialog(opts) {
-        const overlay = document.createElement('div');
-        overlay.className = 'palette-dialog-overlay';
-
-        const dialog = document.createElement('div');
-        dialog.className = 'palette-dialog';
-        dialog.style.width = 'fit-content';
-        dialog.style.minWidth = '320px';
-
-        const header = document.createElement('div');
-        header.className = 'palette-dialog-header';
-        header.innerHTML = `<span>${opts.isNew ? 'Add Text' : 'Edit Text'}</span>`;
-        const closeBtn = document.createElement('button');
-        closeBtn.className = 'palette-dialog-close';
-        closeBtn.textContent = '\u00D7';
-        closeBtn.addEventListener('click', () => overlay.remove());
-        header.appendChild(closeBtn);
-        dialog.appendChild(header);
-
         const existing = opts.isNew ? null : opts.layer.textData;
+        let selectedColorIndex = existing ? existing.colorIndex : this.doc.fgColorIndex;
+
+        const dlg = Dialog.create({
+            title: opts.isNew ? 'Add Text' : 'Edit Text',
+            width: '320px',
+            buttons: [
+                { label: 'Cancel' },
+                { label: 'OK', primary: true, onClick: () => {
+                    const text = textarea.value;
+                    if (!text.trim()) { dlg.close(); return; }
+                    const textData = {
+                        text,
+                        fontFamily: fontSelect.value,
+                        fontSize: Math.max(4, Math.min(128, parseInt(sizeInput.value) || 16)),
+                        bold: boldCheck.checked,
+                        italic: italicCheck.checked,
+                        underline: underlineCheck.checked,
+                        antialiased: aaCheck.checked,
+                        colorIndex: selectedColorIndex,
+                    };
+                    if (opts.isNew) {
+                        if (this.doc.animationEnabled) this.doc.saveCurrentFrame();
+                        const layer = this.doc.addLayer('Text: ' + text.split('\n')[0].substring(0, 20));
+                        layer.type = 'text';
+                        layer.textData = { ...textData };
+                        layer.offsetX = opts.x || 0;
+                        layer.offsetY = opts.y || 0;
+                        if (this.doc.animationEnabled) this.doc.saveCurrentFrame();
+                    } else {
+                        opts.layer.textData = textData;
+                        opts.layer.name = 'Text: ' + text.split('\n')[0].substring(0, 20);
+                    }
+                    dlg.close();
+                    this.bus.emit('layer-changed');
+                    this.bus.emit('document-changed');
+                }},
+            ],
+        });
+
+        const body = dlg.body;
 
         // Text input
         const textarea = document.createElement('textarea');
         textarea.value = existing ? existing.text : '';
         textarea.placeholder = 'Enter text...';
         textarea.style.cssText = 'width:100%;height:80px;resize:vertical;background:var(--bg-input);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:6px;font-size:13px;font-family:monospace;box-sizing:border-box;margin-bottom:8px;';
-        dialog.appendChild(textarea);
+        body.appendChild(textarea);
 
         const row = (label, el) => {
             const r = document.createElement('div');
@@ -1667,7 +1608,7 @@ class App {
             l.style.width = '70px';
             r.appendChild(l);
             r.appendChild(el);
-            dialog.appendChild(r);
+            body.appendChild(r);
             return r;
         };
 
@@ -1712,10 +1653,9 @@ class App {
         const italicCheck = makeCheck('Italic', existing ? existing.italic : false);
         const underlineCheck = makeCheck('Underline', existing ? existing.underline : false);
         const aaCheck = makeCheck('Anti-aliased', existing ? existing.antialiased !== false : true);
-        dialog.appendChild(styleRow);
+        body.appendChild(styleRow);
 
         // Color picker
-        let selectedColorIndex = existing ? existing.colorIndex : this.doc.fgColorIndex;
         const colorRow = document.createElement('div');
         colorRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:12px;position:relative;';
         const colorLabel = document.createElement('label');
@@ -1731,7 +1671,6 @@ class App {
         };
         colorSwatch.style.cssText = 'width:24px;height:24px;border:1px solid var(--border);cursor:pointer;';
 
-        // Floating palette popup
         const openColorPopup = () => {
             const popup = document.createElement('div');
             popup.style.cssText = 'position:fixed;z-index:1100;display:grid;grid-template-columns:repeat(16,14px);gap:1px;padding:6px;background:var(--bg-panel);border:1px solid var(--border);border-radius:4px;box-shadow:0 4px 12px rgba(0,0,0,0.5);';
@@ -1747,14 +1686,11 @@ class App {
                 });
                 popup.appendChild(sw);
             }
-            // Position above the swatch
             const rect = colorSwatch.getBoundingClientRect();
-            const popupW = 16 * 15 + 12; // approximate width
             const popupH = 16 * 15 + 12;
             popup.style.left = Math.max(0, rect.left) + 'px';
             popup.style.top = Math.max(0, rect.top - popupH - 4) + 'px';
             document.body.appendChild(popup);
-            // Close on click outside
             const closePopup = (e) => {
                 if (!popup.contains(e.target)) {
                     popup.remove();
@@ -1768,61 +1704,10 @@ class App {
         colorRow.appendChild(colorLabel);
         colorRow.appendChild(colorSwatch);
         colorRow.appendChild(colorText);
-        dialog.appendChild(colorRow);
+        body.appendChild(colorRow);
         updateSwatch();
 
-        // Buttons
-        const footer = document.createElement('div');
-        footer.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;padding-top:8px;border-top:1px solid var(--border);';
-        const cancelBtn = document.createElement('button');
-        cancelBtn.textContent = 'Cancel';
-        cancelBtn.style.cssText = 'padding:4px 14px;border:1px solid var(--border);border-radius:3px;background:var(--bg-input);color:var(--text);cursor:pointer;font-size:12px;';
-        cancelBtn.addEventListener('click', () => overlay.remove());
-        const okBtn = document.createElement('button');
-        okBtn.textContent = 'OK';
-        okBtn.style.cssText = 'padding:4px 14px;border:1px solid var(--accent);border-radius:3px;background:var(--accent);color:var(--text-bright);cursor:pointer;font-size:12px;';
-        okBtn.addEventListener('click', () => {
-            const text = textarea.value;
-            if (!text.trim()) { overlay.remove(); return; }
-            const textData = {
-                text,
-                fontFamily: fontSelect.value,
-                fontSize: Math.max(4, Math.min(128, parseInt(sizeInput.value) || 16)),
-                bold: boldCheck.checked,
-                italic: italicCheck.checked,
-                underline: underlineCheck.checked,
-                antialiased: aaCheck.checked,
-                colorIndex: selectedColorIndex,
-            };
-            if (opts.isNew) {
-                if (this.doc.animationEnabled) this.doc.saveCurrentFrame();
-                const layer = this.doc.addLayer('Text: ' + text.split('\n')[0].substring(0, 20));
-                layer.type = 'text';
-                layer.textData = { ...textData };
-                layer.offsetX = opts.x || 0;
-                layer.offsetY = opts.y || 0;
-                if (this.doc.animationEnabled) this.doc.saveCurrentFrame();
-            } else {
-                opts.layer.textData = textData;
-                opts.layer.name = 'Text: ' + text.split('\n')[0].substring(0, 20);
-            }
-            overlay.remove();
-            this.bus.emit('layer-changed');
-            this.bus.emit('document-changed');
-        });
-        footer.appendChild(cancelBtn);
-        footer.appendChild(okBtn);
-        dialog.appendChild(footer);
-
-        overlay.appendChild(dialog);
-        document.body.appendChild(overlay);
-
-        overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
-        const onKey = (e) => {
-            if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', onKey); }
-        };
-        document.addEventListener('keydown', onKey);
-        textarea.focus();
+        dlg.show(textarea);
     }
 
     _convertTextToBitmap() {
@@ -1900,76 +1785,71 @@ class App {
         const origH = doc.height;
         const ratio = origW / origH;
 
-        const overlay = document.createElement('div');
-        overlay.style.cssText = `
-            position: fixed; inset: 0; background: rgba(0,0,0,0.7);
-            display: flex; align-items: center; justify-content: center; z-index: 1000;
-        `;
+        const dlg = Dialog.create({
+            title: 'Resize Document',
+            width: '300px',
+            buttons: [
+                { label: 'Cancel' },
+                { label: 'Apply', primary: true, onClick: () => {
+                    const newW = Math.max(1, Math.min(4096, parseInt(wInput.value) || origW));
+                    const newH = Math.max(1, Math.min(4096, parseInt(hInput.value) || origH));
+                    if (newW === origW && newH === origH) { dlg.close(); return; }
+                    const anchor = dlg.body.querySelector('input[name="resize-anchor"]:checked').value;
+                    dlg.close();
+                    this._applyResize(newW, newH, contentCheck.checked, anchor);
+                }},
+            ],
+            enterButton: 1,
+        });
 
-        const dialog = document.createElement('div');
-        dialog.style.cssText = `
-            background: var(--bg-panel, #2d2d30); border: 1px solid var(--border, #3c3c3c);
-            border-radius: 6px; padding: 24px; min-width: 300px; color: var(--text, #ccc);
-        `;
+        const inputStyle = 'width:100%;padding:6px;background:var(--bg-input);border:1px solid var(--border);border-radius:3px;color:var(--text);font-size:13px;box-sizing:border-box;';
+        const checkStyle = 'margin-right:8px;accent-color:var(--accent);';
 
-        const inputStyle = `width: 100%; padding: 6px; background: #3c3c3c; border: 1px solid #555;
-            border-radius: 3px; color: #ccc; font-size: 13px; box-sizing: border-box;`;
-        const checkStyle = `margin-right: 8px; accent-color: #007acc;`;
-        const btnStyle = `padding: 8px 16px; border: none; border-radius: 3px; cursor: pointer; font-size: 13px;`;
-
-        dialog.innerHTML = `
-            <h3 style="margin: 0 0 16px 0; font-size: 16px; color: #fff;">Resize Document</h3>
-            <div style="margin-bottom: 12px;">
-                <label style="display: block; font-size: 12px; margin-bottom: 4px; color: #aaa;">Width (px)</label>
+        dlg.body.style.cssText = 'display:flex;flex-direction:column;gap:12px;padding:8px 0;';
+        dlg.body.innerHTML = `
+            <div>
+                <label style="display:block;font-size:12px;margin-bottom:4px;color:var(--text-dim);">Width (px)</label>
                 <input id="resize-w" type="number" value="${origW}" min="1" max="4096" style="${inputStyle}">
             </div>
-            <div style="margin-bottom: 12px;">
-                <label style="display: block; font-size: 12px; margin-bottom: 4px; color: #aaa;">Height (px)</label>
+            <div>
+                <label style="display:block;font-size:12px;margin-bottom:4px;color:var(--text-dim);">Height (px)</label>
                 <input id="resize-h" type="number" value="${origH}" min="1" max="4096" style="${inputStyle}">
             </div>
-            <div style="margin-bottom: 8px;">
-                <label style="font-size: 13px; color: #ccc; cursor: pointer;">
+            <div>
+                <label style="font-size:13px;color:var(--text);cursor:pointer;">
                     <input id="resize-aspect" type="checkbox" style="${checkStyle}">Keep aspect ratio
                 </label>
             </div>
-            <div style="margin-bottom: 12px;">
-                <label style="font-size: 13px; color: #ccc; cursor: pointer;">
+            <div>
+                <label style="font-size:13px;color:var(--text);cursor:pointer;">
                     <input id="resize-content" type="checkbox" style="${checkStyle}">Resize content
                 </label>
             </div>
-            <div id="resize-anchor-group" style="margin-bottom: 16px;">
-                <label style="display: block; font-size: 12px; margin-bottom: 6px; color: #aaa;">Anchor</label>
-                <div style="display: inline-grid; grid-template-columns: repeat(3, 24px); gap: 2px;">
+            <div id="resize-anchor-group">
+                <label style="display:block;font-size:12px;margin-bottom:6px;color:var(--text-dim);">Anchor</label>
+                <div style="display:inline-grid;grid-template-columns:repeat(3,24px);gap:2px;">
                     ${['nw','n','ne','w','c','e','sw','s','se'].map(id =>
                         `<label style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;
-                            background:#3c3c3c;border:1px solid #555;border-radius:3px;cursor:pointer;">
+                            background:var(--bg-input);border:1px solid var(--border);border-radius:3px;cursor:pointer;">
                             <input type="radio" name="resize-anchor" value="${id}"${id === 'nw' ? ' checked' : ''}
-                                style="margin:0;accent-color:#007acc;">
+                                style="margin:0;accent-color:var(--accent);">
                         </label>`
                     ).join('')}
                 </div>
             </div>
-            <div style="display: flex; gap: 8px; justify-content: flex-end;">
-                <button id="resize-cancel" style="${btnStyle} background: #3c3c3c; color: #ccc;">Cancel</button>
-                <button id="resize-apply" style="${btnStyle} background: #007acc; color: #fff;">Apply</button>
-            </div>
         `;
 
-        overlay.appendChild(dialog);
-        document.body.appendChild(overlay);
+        const wInput = dlg.body.querySelector('#resize-w');
+        const hInput = dlg.body.querySelector('#resize-h');
+        const aspectCheck = dlg.body.querySelector('#resize-aspect');
+        const contentCheck = dlg.body.querySelector('#resize-content');
+        const anchorGroup = dlg.body.querySelector('#resize-anchor-group');
 
-        const wInput = dialog.querySelector('#resize-w');
-        const hInput = dialog.querySelector('#resize-h');
-        const aspectCheck = dialog.querySelector('#resize-aspect');
-        const contentCheck = dialog.querySelector('#resize-content');
-        const anchorGroup = dialog.querySelector('#resize-anchor-group');
-
-        const updateAnchorState = () => {
+        contentCheck.addEventListener('change', () => {
             const disabled = contentCheck.checked;
             anchorGroup.style.opacity = disabled ? '0.4' : '1';
             anchorGroup.style.pointerEvents = disabled ? 'none' : 'auto';
-        };
-        contentCheck.addEventListener('change', updateAnchorState);
+        });
 
         let updatingAspect = false;
         wInput.addEventListener('input', () => {
@@ -1987,28 +1867,7 @@ class App {
             }
         });
 
-        const close = () => overlay.remove();
-
-        dialog.querySelector('#resize-cancel').addEventListener('click', close);
-        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
-
-        dialog.querySelector('#resize-apply').addEventListener('click', () => {
-            const newW = Math.max(1, Math.min(4096, parseInt(wInput.value) || origW));
-            const newH = Math.max(1, Math.min(4096, parseInt(hInput.value) || origH));
-            if (newW === origW && newH === origH) { close(); return; }
-            const anchor = dialog.querySelector('input[name="resize-anchor"]:checked').value;
-            close();
-            this._applyResize(newW, newH, contentCheck.checked, anchor);
-        });
-
-        dialog.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') dialog.querySelector('#resize-apply').click();
-            if (e.key === 'Escape') close();
-            e.stopPropagation();
-        });
-
-        wInput.focus();
-        wInput.select();
+        dlg.show(wInput);
     }
 
     _applyResize(newW, newH, resizeContent, anchor = 'nw') {
@@ -2197,29 +2056,45 @@ class App {
     }
 
     _showQuantizeDialog(rgbaData, width, height, callback) {
-        const overlay = document.createElement('div');
-        overlay.className = 'palette-dialog-overlay';
+        const dlg = Dialog.create({
+            title: 'Import Image',
+            buttons: [
+                { label: 'Cancel' },
+                { label: 'OK', primary: true, onClick: () => {
+                    const okBtn = dlg.getButton(1);
+                    const cancelBtn = dlg.getButton(0);
+                    okBtn.disabled = true;
+                    cancelBtn.disabled = true;
+                    info.textContent = 'Converting, please wait...';
+                    setTimeout(() => {
+                        const numColors = Math.max(1, Math.min(256, parseInt(colorsInput.value) || 256));
+                        const ditherMode = ditherSelect.value;
+                        const result = quantizeImage(rgbaData, width, height, numColors, ditherMode);
 
-        const dialog = document.createElement('div');
-        dialog.className = 'palette-dialog';
-        dialog.style.width = 'fit-content';
+                        const doc = new ImageDocument(width, height);
+                        for (let i = 0; i < 256; i++) {
+                            if (i < result.palette.length) {
+                                doc.palette.setColor(i, ...result.palette[i]);
+                            } else {
+                                doc.palette.setColor(i, 0, 0, 0);
+                            }
+                        }
+                        const layer = doc.getActiveLayer();
+                        layer.data.set(result.indices);
+                        dlg.close();
+                        callback(doc);
+                    }, 16);
+                }},
+            ],
+        });
 
-        const header = document.createElement('div');
-        header.className = 'palette-dialog-header';
-        header.innerHTML = '<span>Import Image</span>';
-        const closeBtn = document.createElement('button');
-        closeBtn.className = 'palette-dialog-close';
-        closeBtn.textContent = '\u00D7';
-        closeBtn.addEventListener('click', () => overlay.remove());
-        header.appendChild(closeBtn);
-        dialog.appendChild(header);
+        const body = dlg.body;
 
         const info = document.createElement('div');
         info.style.cssText = 'font-size:12px;color:var(--text-dim);margin-bottom:8px;';
         info.textContent = `Image: ${width} \u00D7 ${height} pixels`;
-        dialog.appendChild(info);
+        body.appendChild(info);
 
-        // Colors
         const colorsRow = document.createElement('div');
         colorsRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:12px;';
         const colorsLabel = document.createElement('label');
@@ -2232,9 +2107,8 @@ class App {
         colorsInput.style.cssText = 'width:50px;background:var(--bg-input);border:1px solid var(--border);border-radius:2px;color:var(--text);padding:2px 4px;text-align:center;font-size:12px;';
         colorsRow.appendChild(colorsLabel);
         colorsRow.appendChild(colorsInput);
-        dialog.appendChild(colorsRow);
+        body.appendChild(colorsRow);
 
-        // Dithering
         const ditherRow = document.createElement('div');
         ditherRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:12px;';
         const ditherLabel = document.createElement('label');
@@ -2249,86 +2123,39 @@ class App {
         }
         ditherRow.appendChild(ditherLabel);
         ditherRow.appendChild(ditherSelect);
-        dialog.appendChild(ditherRow);
+        body.appendChild(ditherRow);
 
-        // Buttons
-        const footer = document.createElement('div');
-        footer.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;padding-top:8px;border-top:1px solid var(--border);';
-        const cancelBtn = document.createElement('button');
-        cancelBtn.textContent = 'Cancel';
-        cancelBtn.className = 'palette-dialog-footer';
-        cancelBtn.style.cssText = 'padding:4px 14px;border:1px solid var(--border);border-radius:3px;background:var(--bg-input);color:var(--text);cursor:pointer;font-size:12px;';
-        cancelBtn.addEventListener('click', () => overlay.remove());
-        const okBtn = document.createElement('button');
-        okBtn.textContent = 'OK';
-        okBtn.style.cssText = 'padding:4px 14px;border:1px solid var(--accent);border-radius:3px;background:var(--accent);color:var(--text-bright);cursor:pointer;font-size:12px;';
-        okBtn.addEventListener('click', () => {
-            okBtn.disabled = true;
-            cancelBtn.disabled = true;
-            info.textContent = 'Converting, please wait...';
-            setTimeout(() => {
-                const numColors = Math.max(1, Math.min(256, parseInt(colorsInput.value) || 256));
-                const ditherMode = ditherSelect.value;
-                const result = quantizeImage(rgbaData, width, height, numColors, ditherMode);
-
-                const doc = new ImageDocument(width, height);
-                for (let i = 0; i < 256; i++) {
-                    if (i < result.palette.length) {
-                        doc.palette.setColor(i, ...result.palette[i]);
-                    } else {
-                        doc.palette.setColor(i, 0, 0, 0);
-                    }
-                }
-                const layer = doc.getActiveLayer();
-                layer.data.set(result.indices);
-                overlay.remove();
-                callback(doc);
-            }, 16);
-        });
-        footer.appendChild(cancelBtn);
-        footer.appendChild(okBtn);
-        dialog.appendChild(footer);
-
-        overlay.appendChild(dialog);
-        document.body.appendChild(overlay);
-
-        // Escape to close
-        const onKey = (e) => {
-            if (e.key === 'Escape') {
-                overlay.remove();
-                document.removeEventListener('keydown', onKey);
-            }
-        };
-        document.addEventListener('keydown', onKey);
-        overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) overlay.remove();
-        });
+        dlg.show();
     }
 
     _showPasteDitherDialog(rgbaData, width, height, callback) {
-        const overlay = document.createElement('div');
-        overlay.className = 'palette-dialog-overlay';
+        const dlg = Dialog.create({
+            title: 'Paste Image',
+            buttons: [
+                { label: 'Cancel' },
+                { label: 'OK', primary: true, onClick: () => {
+                    const okBtn = dlg.getButton(1);
+                    const cancelBtn = dlg.getButton(0);
+                    okBtn.disabled = true;
+                    cancelBtn.disabled = true;
+                    info.textContent = 'Converting, please wait...';
+                    setTimeout(() => {
+                        const palette = this.doc.palette.export();
+                        const indices = mapToPalette(rgbaData, width, height, palette, ditherSelect.value);
+                        dlg.close();
+                        callback(indices, width, height);
+                    }, 16);
+                }},
+            ],
+        });
 
-        const dialog = document.createElement('div');
-        dialog.className = 'palette-dialog';
-        dialog.style.width = 'fit-content';
-
-        const header = document.createElement('div');
-        header.className = 'palette-dialog-header';
-        header.innerHTML = '<span>Paste Image</span>';
-        const closeBtn = document.createElement('button');
-        closeBtn.className = 'palette-dialog-close';
-        closeBtn.textContent = '\u00D7';
-        closeBtn.addEventListener('click', () => overlay.remove());
-        header.appendChild(closeBtn);
-        dialog.appendChild(header);
+        const body = dlg.body;
 
         const info = document.createElement('div');
         info.style.cssText = 'font-size:12px;color:var(--text-dim);margin-bottom:8px;';
-        info.textContent = `Image: ${width} \u00D7 ${height} pixels — mapping to current palette`;
-        dialog.appendChild(info);
+        info.textContent = `Image: ${width} \u00D7 ${height} pixels \u2014 mapping to current palette`;
+        body.appendChild(info);
 
-        // Dithering
         const ditherRow = document.createElement('div');
         ditherRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:12px;';
         const ditherLabel = document.createElement('label');
@@ -2343,46 +2170,9 @@ class App {
         }
         ditherRow.appendChild(ditherLabel);
         ditherRow.appendChild(ditherSelect);
-        dialog.appendChild(ditherRow);
+        body.appendChild(ditherRow);
 
-        // Buttons
-        const footer = document.createElement('div');
-        footer.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;padding-top:8px;border-top:1px solid var(--border);';
-        const cancelBtn = document.createElement('button');
-        cancelBtn.textContent = 'Cancel';
-        cancelBtn.style.cssText = 'padding:4px 14px;border:1px solid var(--border);border-radius:3px;background:var(--bg-input);color:var(--text);cursor:pointer;font-size:12px;';
-        cancelBtn.addEventListener('click', () => overlay.remove());
-        const okBtn = document.createElement('button');
-        okBtn.textContent = 'OK';
-        okBtn.style.cssText = 'padding:4px 14px;border:1px solid var(--accent);border-radius:3px;background:var(--accent);color:var(--text-bright);cursor:pointer;font-size:12px;';
-        okBtn.addEventListener('click', () => {
-            okBtn.disabled = true;
-            cancelBtn.disabled = true;
-            info.textContent = 'Converting, please wait...';
-            setTimeout(() => {
-                const palette = this.doc.palette.export();
-                const indices = mapToPalette(rgbaData, width, height, palette, ditherSelect.value);
-                overlay.remove();
-                callback(indices, width, height);
-            }, 16);
-        });
-        footer.appendChild(cancelBtn);
-        footer.appendChild(okBtn);
-        dialog.appendChild(footer);
-
-        overlay.appendChild(dialog);
-        document.body.appendChild(overlay);
-
-        const onKey = (e) => {
-            if (e.key === 'Escape') {
-                overlay.remove();
-                document.removeEventListener('keydown', onKey);
-            }
-        };
-        document.addEventListener('keydown', onKey);
-        overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) overlay.remove();
-        });
+        dlg.show();
     }
 
     _replaceDocument(newDoc) {
@@ -2454,48 +2244,30 @@ class App {
     }
 
     _showTransparencyDialog(callback) {
-        const overlay = document.createElement('div');
-        overlay.style.cssText = `
-            position: fixed; inset: 0; background: rgba(0,0,0,0.7);
-            display: flex; align-items: center; justify-content: center; z-index: 1000;
-        `;
-
         const lastChoice = localStorage.getItem('pix8-zero-transparent') ?? 'no';
+        let result = lastChoice === 'yes';
 
-        const dialog = document.createElement('div');
-        dialog.style.cssText = `
-            background: #2d2d30; border: 1px solid #555; border-radius: 6px;
-            padding: 20px; min-width: 300px; color: #ccc;
-        `;
-        dialog.innerHTML = `
-            <div style="font-size: 14px; margin-bottom: 16px; color: #fff;">Treat index 0 as transparent?</div>
-            <div style="font-size: 12px; color: #aaa; margin-bottom: 16px;">
+        const dlg = Dialog.create({
+            title: 'Treat index 0 as transparent?',
+            width: '300px',
+            buttons: [
+                { label: 'Yes', primary: lastChoice === 'yes', onClick: () => { result = true; dlg.close(); } },
+                { label: 'No', primary: lastChoice === 'no', onClick: () => { result = false; dlg.close(); } },
+            ],
+            enterButton: lastChoice === 'yes' ? 0 : 1,
+            onClose: () => {
+                localStorage.setItem('pix8-zero-transparent', result ? 'yes' : 'no');
+                callback(result);
+            },
+        });
+
+        dlg.body.innerHTML = `
+            <div style="font-size:12px;color:var(--text-dim);margin-bottom:8px;">
                 If yes, all pixels with palette index 0 will become transparent.
             </div>
-            <div style="display: flex; gap: 8px;">
-                <button id="transp-yes" style="flex: 1; padding: 8px; background: ${lastChoice === 'yes' ? '#007acc' : '#3c3c3c'};
-                    border: 1px solid ${lastChoice === 'yes' ? '#007acc' : '#555'}; border-radius: 3px; color: #fff; cursor: pointer; font-size: 13px;">Yes</button>
-                <button id="transp-no" style="flex: 1; padding: 8px; background: ${lastChoice === 'no' ? '#007acc' : '#3c3c3c'};
-                    border: 1px solid ${lastChoice === 'no' ? '#007acc' : '#555'}; border-radius: 3px; color: #fff; cursor: pointer; font-size: 13px;">No</button>
-            </div>
         `;
 
-        overlay.appendChild(dialog);
-        document.body.appendChild(overlay);
-
-        const finish = (choice) => {
-            localStorage.setItem('pix8-zero-transparent', choice ? 'yes' : 'no');
-            overlay.remove();
-            callback(choice);
-        };
-
-        dialog.querySelector('#transp-yes').addEventListener('click', () => finish(true));
-        dialog.querySelector('#transp-no').addEventListener('click', () => finish(false));
-        dialog.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') finish(lastChoice === 'yes');
-            if (e.key === 'Escape') finish(lastChoice === 'no');
-        });
-        dialog.querySelector(lastChoice === 'yes' ? '#transp-yes' : '#transp-no').focus();
+        dlg.show(dlg.getButton(lastChoice === 'yes' ? 0 : 1));
     }
 
     _importFile() {
@@ -2553,26 +2325,55 @@ class App {
     }
 
     _showExportDialog() {
-        const overlay = document.createElement('div');
-        overlay.className = 'palette-dialog-overlay';
+        const dlg = Dialog.create({
+            title: 'Export as...',
+            width: '320px',
+            buttons: [
+                { label: 'Cancel' },
+                { label: 'Export', primary: true, onClick: async () => {
+                    const format = formatSelect.value;
+                    dlg.close();
+                    switch (format) {
+                        case 'bmp': {
+                            const blob = exportBMP(this.doc);
+                            downloadBlob(blob, 'export.bmp');
+                            break;
+                        }
+                        case 'pcx': {
+                            const blob = exportPCX(this.doc);
+                            downloadBlob(blob, 'export.pcx');
+                            break;
+                        }
+                        case 'png': {
+                            const blob = await exportPNG(this.doc, this.canvasView.renderer);
+                            downloadBlob(blob, 'export.png');
+                            break;
+                        }
+                        case 'gif': {
+                            this.doc.saveCurrentFrame();
+                            const scale = parseInt(scaleSelect.value) || 1;
+                            const loopCount = parseInt(loopSelect.value) || 0;
+                            const sel = framesSelect.value;
+                            const frameIndices = sel === 'all' ? null : tagGroups.find(g => g.tag === sel)?.indices;
+                            const filename = sel === 'all' ? 'export.gif' : `${sel}.gif`;
+                            const blob = exportGIF(this.doc, { scale, loopCount, frameIndices });
+                            downloadBlob(blob, filename);
+                            break;
+                        }
+                        case 'spx': {
+                            this.doc.saveCurrentFrame();
+                            const spriteName = nameInput.value.trim() || defaultName;
+                            const zipBlob = await exportSPXZip(this.doc, { name: spriteName });
+                            downloadBlob(zipBlob, spriteName + '.zip');
+                            break;
+                        }
+                    }
+                }},
+            ],
+            enterButton: 1,
+        });
 
-        const dialog = document.createElement('div');
-        dialog.className = 'palette-dialog';
-        dialog.style.cssText = 'width:320px;max-width:90vw;';
-
-        // Header
-        const header = document.createElement('div');
-        header.className = 'palette-dialog-header';
-        header.innerHTML = '<span>Export as...</span>';
-        const closeBtn = document.createElement('button');
-        closeBtn.className = 'palette-dialog-close';
-        closeBtn.textContent = '\u00D7';
-        closeBtn.addEventListener('click', () => overlay.remove());
-        header.appendChild(closeBtn);
-        dialog.appendChild(header);
-
-        // Body
-        const body = document.createElement('div');
+        const body = dlg.body;
         body.style.cssText = 'display:flex;flex-direction:column;gap:8px;padding:8px 0;';
 
         const rowStyle = 'display:flex;align-items:center;gap:8px;';
@@ -2724,82 +2525,13 @@ class App {
 
         body.appendChild(spxOptions);
 
-        dialog.appendChild(body);
-
         // Format change handler
         formatSelect.addEventListener('change', () => {
             gifOptions.style.display = formatSelect.value === 'gif' ? 'flex' : 'none';
             spxOptions.style.display = formatSelect.value === 'spx' ? 'flex' : 'none';
         });
 
-        // Footer
-        const footer = document.createElement('div');
-        footer.className = 'palette-dialog-footer';
-        footer.style.justifyContent = 'flex-end';
-        footer.style.gap = '8px';
-
-        const cancelBtn = document.createElement('button');
-        cancelBtn.textContent = 'Cancel';
-        cancelBtn.addEventListener('click', () => overlay.remove());
-
-        const exportBtn = document.createElement('button');
-        exportBtn.textContent = 'Export';
-        exportBtn.className = 'primary';
-        exportBtn.addEventListener('click', async () => {
-            const format = formatSelect.value;
-            overlay.remove();
-            switch (format) {
-                case 'bmp': {
-                    const blob = exportBMP(this.doc);
-                    downloadBlob(blob, 'export.bmp');
-                    break;
-                }
-                case 'pcx': {
-                    const blob = exportPCX(this.doc);
-                    downloadBlob(blob, 'export.pcx');
-                    break;
-                }
-                case 'png': {
-                    const blob = await exportPNG(this.doc, this.canvasView.renderer);
-                    downloadBlob(blob, 'export.png');
-                    break;
-                }
-                case 'gif': {
-                    this.doc.saveCurrentFrame();
-                    const scale = parseInt(scaleSelect.value) || 1;
-                    const loopCount = parseInt(loopSelect.value) || 0;
-                    const sel = framesSelect.value;
-                    const frameIndices = sel === 'all' ? null : tagGroups.find(g => g.tag === sel)?.indices;
-                    const filename = sel === 'all' ? 'export.gif' : `${sel}.gif`;
-                    const blob = exportGIF(this.doc, { scale, loopCount, frameIndices });
-                    downloadBlob(blob, filename);
-                    break;
-                }
-                case 'spx': {
-                    this.doc.saveCurrentFrame();
-                    const spriteName = nameInput.value.trim() || defaultName;
-                    const zipBlob = await exportSPXZip(this.doc, { name: spriteName });
-                    downloadBlob(zipBlob, spriteName + '.zip');
-                    break;
-                }
-            }
-        });
-
-        footer.appendChild(cancelBtn);
-        footer.appendChild(exportBtn);
-        dialog.appendChild(footer);
-
-        overlay.appendChild(dialog);
-        document.body.appendChild(overlay);
-
-        // Keyboard
-        dialog.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') overlay.remove();
-            if (e.key === 'Enter') exportBtn.click();
-        });
-        overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) overlay.remove();
-        });
+        dlg.show();
     }
 }
 

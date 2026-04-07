@@ -1,15 +1,24 @@
 # Changelog
 
-## [1.3.1] - 2026-04-07
+## [1.4.0] - 2026-04-07
+
+### Added
+- **Palette Copy/Paste** -- Copy and Paste buttons in palette editor toolbar copy a range of colors and paste them at the current selection start, works across tabs for cross-document palette transfer
+- **Palette Merge** -- Merge now properly averages all colors in the selected range, remaps all pixel data to the first index, and zeros out freed slots
 
 ### Fixed
 - Toolbar flyout groups (Shapes, Select) now correctly switch tools -- clicking Ellipse, Filled Ellipse, Filled Rect, or Ellipse Select no longer falls back to the first tool in the group
 - Frame panel no longer gets pushed off-screen when switching back to an animated tab after browser zoom or ruler/guide toggles
 - Palette editor operations (Zap Unused, Used highlight, X-Swap, X-Flip, and all index remapping) now consider all animation frames, not just the current one
+- Dialogs no longer close when mousedown starts inside and mouseup lands on the overlay
+- Layer clone no longer crashes when layer data size doesn't match dimensions (fixes palette editor crash after paste)
 
 ### Changed
 - Frame panel height increased to 120px with vertically centered thumbnails
 - Frame tag labels raised 3px
+- Extracted `Dialog` helper class (`js/ui/Dialog.js`) -- all 10 modal dialogs now share overlay, header, footer, keyboard, and click-to-close logic
+- Inline-styled dialogs (New Document, Resize) migrated to CSS custom properties for theme consistency
+- Removed old two-step Copy operation from palette editor (replaced by Copy/Paste range)
 
 ## [1.3.0] - 2026-04-07
 

@@ -181,8 +181,13 @@ export class PaletteEditDialog {
 
         overlay.appendChild(dialog);
 
+        let overlayMouseDown = false;
+        overlay.addEventListener('mousedown', (e) => {
+            overlayMouseDown = e.target === overlay;
+        });
         overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) this._cancel();
+            if (e.target === overlay && overlayMouseDown) this._cancel();
+            overlayMouseDown = false;
         });
 
         this._onKey = (e) => {
@@ -215,7 +220,9 @@ export class PaletteEditDialog {
 
         this._swapBtn = btn('Swap', () => this._startPendingOp('swap'));
         this._xswapBtn = btn('X-Swap', () => this._startPendingOp('xswap'));
-        this._copyBtn = btn('Copy', () => this._startPendingOp('copy'));
+        btn('Copy', () => this._actionCopyRange());
+        this._pasteRangeBtn = btn('Paste', () => this._actionPasteRange());
+        this._pasteRangeBtn.disabled = !PaletteEditDialog._rangeClipboard;
         this._flipBtn = btn('Flip', () => this._actionFlip());
         this._xflipBtn = btn('X-Flip', () => this._actionXFlip());
 
@@ -890,12 +897,33 @@ export class PaletteEditDialog {
         if (lo === hi) return;
         this._pushPaletteHistory();
         const pal = this.doc.palette;
-        const [r, g, b] = pal.getColor(lo);
-        for (let i = lo + 1; i <= hi; i++) {
-            pal.setColor(i, r, g, b);
+
+        // Average all colors in the range
+        let rSum = 0, gSum = 0, bSum = 0;
+        const count = hi - lo + 1;
+        for (let i = lo; i <= hi; i++) {
+            const [r, g, b] = pal.getColor(i);
+            rSum += r; gSum += g; bSum += b;
         }
+        const [ar, ag, ab] = this._snapIf6bit(
+            Math.round(rSum / count), Math.round(gSum / count), Math.round(bSum / count)
+        );
+
+        // Remap all pixels using indices [lo+1..hi] to lo
+        const mapping = new Array(256);
+        for (let i = 0; i < 256; i++) mapping[i] = i;
+        for (let i = lo + 1; i <= hi; i++) mapping[i] = lo;
+        this.doc.remapColorIndices(mapping);
+
+        // Set merged color and zero out freed slots
+        pal.setColor(lo, ar, ag, ab);
+        for (let i = lo + 1; i <= hi; i++) {
+            pal.setColor(i, 0, 0, 0);
+        }
+
         this.updateSwatches();
         this.bus.emit('palette-changed');
+        this.bus.emit('document-changed');
     }
 
     // ── Two-Step Operations ───────────────────────────────────────────
@@ -911,13 +939,12 @@ export class PaletteEditDialog {
         this._pendingOp = { type, srcStart: lo, srcEnd: hi, rangeLen };
         this._grid.classList.add('pending-op');
 
-        const labels = { swap: 'Swap', xswap: 'X-Swap', copy: 'Copy' };
+        const labels = { swap: 'Swap', xswap: 'X-Swap' };
         this._statusEl.textContent = `Click destination for ${labels[type]} (${rangeLen} colors)`;
         this._statusEl.style.display = '';
 
         this._swapBtn.classList.toggle('active', type === 'swap');
         this._xswapBtn.classList.toggle('active', type === 'xswap');
-        this._copyBtn.classList.toggle('active', type === 'copy');
     }
 
     _cancelPendingOp() {
@@ -926,7 +953,6 @@ export class PaletteEditDialog {
         this._statusEl.style.display = 'none';
         this._swapBtn.classList.remove('active');
         this._xswapBtn.classList.remove('active');
-        this._copyBtn.classList.remove('active');
     }
 
     _executePendingOp(destStart) {
@@ -939,39 +965,30 @@ export class PaletteEditDialog {
             return;
         }
 
-        if (op.type !== 'copy') {
-            const srcLo = op.srcStart, srcHi = op.srcEnd;
-            if (!(destEnd < srcLo || destStart > srcHi)) {
-                return;
-            }
+        const srcLo = op.srcStart, srcHi = op.srcEnd;
+        if (!(destEnd < srcLo || destStart > srcHi)) {
+            return;
         }
 
         this._pushPaletteHistory();
         const pal = this.doc.palette;
         const len = op.rangeLen;
 
-        if (op.type === 'swap' || op.type === 'xswap') {
+        for (let i = 0; i < len; i++) {
+            const a = [...pal.getColor(op.srcStart + i)];
+            const b = [...pal.getColor(destStart + i)];
+            pal.setColor(op.srcStart + i, ...b);
+            pal.setColor(destStart + i, ...a);
+        }
+        if (op.type === 'xswap') {
+            const mapping = new Array(256);
+            for (let i = 0; i < 256; i++) mapping[i] = i;
             for (let i = 0; i < len; i++) {
-                const a = [...pal.getColor(op.srcStart + i)];
-                const b = [...pal.getColor(destStart + i)];
-                pal.setColor(op.srcStart + i, ...b);
-                pal.setColor(destStart + i, ...a);
+                mapping[op.srcStart + i] = destStart + i;
+                mapping[destStart + i] = op.srcStart + i;
             }
-            if (op.type === 'xswap') {
-                const mapping = new Array(256);
-                for (let i = 0; i < 256; i++) mapping[i] = i;
-                for (let i = 0; i < len; i++) {
-                    mapping[op.srcStart + i] = destStart + i;
-                    mapping[destStart + i] = op.srcStart + i;
-                }
-                this.doc.remapColorIndices(mapping);
-                this.bus.emit('document-changed');
-            }
-        } else if (op.type === 'copy') {
-            for (let i = 0; i < len; i++) {
-                const [r, g, b] = pal.getColor(op.srcStart + i);
-                pal.setColor(destStart + i, r, g, b);
-            }
+            this.doc.remapColorIndices(mapping);
+            this.bus.emit('document-changed');
         }
 
         this._cancelPendingOp();
@@ -979,6 +996,36 @@ export class PaletteEditDialog {
         this._rangeEnd = destEnd;
         this.updateSwatches();
         this._updateRangeHighlight();
+        this.bus.emit('palette-changed');
+    }
+
+    // ── Copy / Paste Range ─────────────────────────────────────────────
+
+    _actionCopyRange() {
+        const [lo, hi] = this._sortedRange();
+        const colors = [];
+        const pal = this.doc.palette;
+        for (let i = lo; i <= hi; i++) {
+            colors.push([...pal.getColor(i)]);
+        }
+        PaletteEditDialog._rangeClipboard = colors;
+        if (this._pasteRangeBtn) this._pasteRangeBtn.disabled = false;
+    }
+
+    _actionPasteRange() {
+        const clip = PaletteEditDialog._rangeClipboard;
+        if (!clip || clip.length === 0) return;
+        const [lo] = this._sortedRange();
+        if (lo + clip.length > 256) return;
+        this._pushPaletteHistory();
+        const pal = this.doc.palette;
+        for (let i = 0; i < clip.length; i++) {
+            pal.setColor(lo + i, ...clip[i]);
+        }
+        this._rangeEnd = lo + clip.length - 1;
+        this._updateRangeHighlight();
+        this.updateSwatches();
+        this._syncPicker();
         this.bus.emit('palette-changed');
     }
 
@@ -1299,3 +1346,5 @@ export class PaletteEditDialog {
         this.onClose?.();
     }
 }
+
+PaletteEditDialog._rangeClipboard = null;
