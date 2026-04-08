@@ -3,6 +3,11 @@
   "version": "1.4.0",
   "description": "256-color indexed pixel art editor",
   "main": "electron-main.js",
+  "author": {
+    "name": "Dynart",
+    "email": "info@dynart.net",
+    "url": "https://dynart.net"
+  },
   "scripts": {
     "start": "npx serve .",
     "build": "webpack",
@@ -16,6 +21,9 @@
   "build": {
     "appId": "net.dynart.pix8",
     "productName": "Pix8",
+    "directories": {
+      "output": "release"
+    },
     "files": [
       "electron-main.js",
       "electron-preload.js",

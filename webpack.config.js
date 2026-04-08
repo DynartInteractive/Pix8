@@ -11,4 +11,8 @@ module.exports = {
         extensions: ['.js'],
     },
     devtool: 'source-map',
+    performance: {
+        maxAssetSize: 1024 * 1024,
+        maxEntrypointSize: 1024 * 1024,
+    },
 };

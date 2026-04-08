@@ -8,6 +8,8 @@ export class FramePanel {
         this.panel = document.getElementById('frame-panel');
         this._list = null;
         this._playing = false;
+        this._lastClickTime = 0;
+        this._lastClickIndex = -1;
         this._playMode = null; // 'all' or 'tag'
         this._playFrameIndices = null; // indices to loop through
         this._playTimer = null;
@@ -191,17 +193,17 @@ export class FramePanel {
             label.textContent = `${i + 1}`;
             thumb.appendChild(label);
 
-            // Click to switch frame
             thumb.addEventListener('click', () => {
                 if (this._playing) return;
+                const now = Date.now();
+                if (now - this._lastClickTime < 400 && this._lastClickIndex === i) {
+                    this._lastClickTime = 0;
+                    this._editFrame(i, frame);
+                    return;
+                }
+                this._lastClickTime = now;
+                this._lastClickIndex = i;
                 this._switchFrame(i);
-            });
-
-            // Double-click to edit tag/delay
-            thumb.addEventListener('dblclick', (e) => {
-                e.stopPropagation();
-                if (this._playing) return;
-                this._editFrame(i, frame);
             });
 
             this._list.appendChild(thumb);

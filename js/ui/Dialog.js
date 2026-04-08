@@ -87,8 +87,11 @@ export default class Dialog {
             if (e.key === 'Escape') {
                 this.close();
             } else if (e.key === 'Enter' && enterIdx >= 0 && this._buttons[enterIdx]) {
+                // Don't trigger button when typing in a textarea or text input
+                if (e.target.tagName === 'TEXTAREA') return;
                 this._buttons[enterIdx].click();
             }
+            e.stopPropagation();
         };
 
         // Overlay click-to-close (mousedown + click must both be on overlay)

@@ -33,6 +33,7 @@ Pix8 is a 256-color indexed pixel art editor for the browser. It targets VGA-era
 - **Webpack bundler**. ES modules bundled to `dist/bundle.js` via `npm run build`. JSZip is the only runtime dependency.
 - **Dark theme only**, min 600px width, fixed layout.
 - CSS uses custom properties defined in `css/main.css` (e.g. `--bg-primary`, `--accent`, `--border`).
+- **Electron compatibility**: Do not use `prompt()` (unsupported) — use inline inputs or Dialog helper. `confirm()` works. Double-click detection must use manual timestamp tracking (not `dblclick` event) because `user-select: none` and DOM re-renders between clicks break it.
 
 ## Running
 
@@ -45,6 +46,12 @@ npm start        # runs npx serve .
 Development with auto-rebuild:
 ```
 npm run dev      # webpack watch mode
+```
+
+Electron desktop app:
+```
+npm run electron              # run as desktop app
+DEVTOOLS=1 npm run electron   # run with DevTools (F12 to toggle)
 ```
 
 ## Testing

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, dialog, ipcMain } = require('electron');
+const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -25,6 +25,27 @@ function createWindow() {
     // Remove default menu bar (app has its own menus)
     Menu.setApplicationMenu(null);
 
+    // DEVTOOLS=1 npm run electron — opens DevTools, F12 to toggle
+    if (process.env.DEVTOOLS) {
+        mainWindow.webContents.openDevTools();
+        mainWindow.webContents.on('before-input-event', (event, input) => {
+            if (input.key === 'F12') {
+                mainWindow.webContents.toggleDevTools();
+            }
+        });
+    }
+
+    mainWindow.on('close', (e) => {
+        const choice = dialog.showMessageBoxSync(mainWindow, {
+            type: 'question',
+            buttons: ['Quit', 'Cancel'],
+            defaultId: 1,
+            title: 'Quit Pix8?',
+            message: 'Unsaved changes will be lost.',
+        });
+        if (choice === 1) e.preventDefault();
+    });
+
     mainWindow.on('closed', () => {
         mainWindow = null;
     });
@@ -46,7 +67,8 @@ ipcMain.handle('show-open-dialog', async (event, options) => {
     if (result.canceled || result.filePaths.length === 0) return null;
     const filePath = result.filePaths[0];
     const data = fs.readFileSync(filePath);
-    return { filePath, fileName: path.basename(filePath), data: data.buffer };
+    const copy = new Uint8Array(data).buffer;
+    return { filePath, fileName: path.basename(filePath), data: copy };
 });
 
 ipcMain.handle('show-save-dialog', async (event, options) => {

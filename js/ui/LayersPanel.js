@@ -9,6 +9,8 @@ export class LayersPanel {
         this._opacitySlider = document.getElementById('layer-opacity-slider');
         this._opacityNum = document.getElementById('layer-opacity-num');
         this._opacityBefore = null;
+        this._lastClickTime = 0;
+        this._lastClickIndex = -1;
 
         document.getElementById('layer-add-btn').addEventListener('click', () => this._addLayer());
         document.getElementById('layer-del-btn').addEventListener('click', () => this._deleteLayer());
@@ -152,12 +154,16 @@ export class LayersPanel {
             name.className = 'layer-name';
             name.textContent = layer.name;
 
-            name.addEventListener('dblclick', (e) => {
-                e.stopPropagation();
-                this._startRename(name, layer, i);
-            });
-
             item.addEventListener('click', (e) => {
+                const now = Date.now();
+                if (now - this._lastClickTime < 400 && this._lastClickIndex === i) {
+                    this._lastClickTime = 0;
+                    this._startRename(name, layer, i);
+                    return;
+                }
+                this._lastClickTime = now;
+                this._lastClickIndex = i;
+
                 if (e.ctrlKey) {
                     // Can't deselect the active layer — it's always selected
                     if (i !== this.doc.activeLayerIndex) {
@@ -239,18 +245,34 @@ export class LayersPanel {
 
     _startRename(nameEl, layer, layerIndex) {
         const beforeName = layer.name;
-        const result = prompt('Rename layer:', layer.name);
-        if (result === null) return;
-        const trimmed = result.trim();
-        if (!trimmed || trimmed === beforeName) return;
-        layer.name = trimmed;
-        this.undoManager.pushEntry({
-            type: 'layer-rename',
-            layerIndex,
-            beforeName,
-            afterName: trimmed,
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'layer-name-input';
+        input.value = layer.name;
+        nameEl.replaceWith(input);
+        input.focus();
+        input.select();
+
+        const commit = () => {
+            const trimmed = input.value.trim();
+            if (trimmed && trimmed !== beforeName) {
+                layer.name = trimmed;
+                this.undoManager.pushEntry({
+                    type: 'layer-rename',
+                    layerIndex,
+                    beforeName,
+                    afterName: trimmed,
+                });
+            }
+            this.render();
+        };
+
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); commit(); }
+            if (e.key === 'Escape') { e.preventDefault(); this.render(); }
+            e.stopPropagation();
         });
-        this.render();
+        input.addEventListener('blur', commit);
     }
 
     _addLayer() {

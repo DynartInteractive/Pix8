@@ -54,6 +54,13 @@ class App {
         this._nextTabId = 1;
 
         this._init(DEFAULT_DOC_WIDTH, DEFAULT_DOC_HEIGHT);
+
+        // Warn before closing/refreshing (browser only)
+        if (!window.electronAPI) {
+            window.addEventListener('beforeunload', (e) => {
+                e.preventDefault();
+            });
+        }
     }
 
     _showNewDocDialog() {
@@ -501,8 +508,9 @@ class App {
         }
 
         document.addEventListener('keydown', (e) => {
-            // Don't handle if typing in an input
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            // Don't handle if typing in an input or a dialog is open
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+            if (e.target.closest('.palette-dialog-overlay')) return;
 
             // Tool shortcuts
             if (!e.ctrlKey && !e.altKey && !e.metaKey) {
@@ -909,9 +917,31 @@ class App {
 
     _expandShrinkSelection(direction) {
         const label = direction > 0 ? 'Expand' : 'Shrink';
-        const px = prompt(`${label} selection by (px):`, '1');
-        if (px === null) return;
-        const amount = Math.max(1, parseInt(px) || 1);
+        const dlg = Dialog.create({
+            title: `${label} Selection`,
+            width: '250px',
+            buttons: [
+                { label: 'Cancel' },
+                { label: 'OK', primary: true, onClick: () => {
+                    const amount = Math.max(1, parseInt(pxInput.value) || 1);
+                    dlg.close();
+                    this._applyExpandShrink(direction, amount);
+                }},
+            ],
+            enterButton: 1,
+        });
+        dlg.body.style.cssText = 'padding:8px 0;';
+        dlg.body.innerHTML = `
+            <div style="display:flex;align-items:center;gap:8px;font-size:13px;">
+                <label>${label} by (px):</label>
+                <input type="number" value="1" min="1" max="256" style="width:60px;padding:3px 6px;background:var(--bg-input);border:1px solid var(--border);color:var(--text);border-radius:3px;font-size:13px;text-align:center;">
+            </div>
+        `;
+        const pxInput = dlg.body.querySelector('input');
+        dlg.show(pxInput);
+    }
+
+    _applyExpandShrink(direction, amount) {
         const sel = this.doc.selection;
         const { width, height, mask } = sel;
         const newMask = new Uint8Array(mask);
@@ -1058,11 +1088,12 @@ class App {
         // Save current frame before modifying layers
         if (this.doc.animationEnabled) this.doc.saveCurrentFrame();
         const newLayer = this.doc.addLayer('Pasted');
+        newLayer.width = cb.width;
+        newLayer.height = cb.height;
+        newLayer.data = new Uint16Array(cb.width * cb.height);
         newLayer.data.set(data);
         newLayer.offsetX = originX;
         newLayer.offsetY = originY;
-        newLayer.width = cb.width;
-        newLayer.height = cb.height;
         // Update current frame with the pasted content
         if (this.doc.animationEnabled) this.doc.saveCurrentFrame();
         this.bus.emit('layer-changed');
@@ -1102,11 +1133,12 @@ class App {
                     // Create a new layer with the pasted data
                     if (this.doc.animationEnabled) this.doc.saveCurrentFrame();
                     const newLayer = this.doc.addLayer('Pasted');
+                    newLayer.width = w;
+                    newLayer.height = h;
+                    newLayer.data = new Uint16Array(w * h);
                     newLayer.data.set(indices);
                     newLayer.offsetX = Math.round((this.doc.width - w) / 2);
                     newLayer.offsetY = Math.round((this.doc.height - h) / 2);
-                    newLayer.width = w;
-                    newLayer.height = h;
                     if (this.doc.animationEnabled) this.doc.saveCurrentFrame();
                     this.bus.emit('layer-changed');
                     this.bus.emit('document-changed');
@@ -1969,6 +2001,10 @@ class App {
     }
 
     _openFile() {
+        if (window.electronAPI) {
+            this._openFileElectron();
+            return;
+        }
         const input = document.createElement('input');
         input.type = 'file';
         input.accept = '.pix8,.bmp,.pcx,.png,.jpg,.jpeg,.gif,.webp';
@@ -2005,6 +2041,53 @@ class App {
             reader.readAsArrayBuffer(file);
         });
         input.click();
+    }
+
+    async _openFileElectron() {
+        const result = await window.electronAPI.showOpenDialog({
+            filters: [
+                { name: 'All Supported', extensions: ['pix8', 'bmp', 'pcx', 'png', 'jpg', 'jpeg', 'gif', 'webp'] },
+                { name: 'Pix8 Projects', extensions: ['pix8'] },
+                { name: 'Images', extensions: ['bmp', 'pcx', 'png', 'jpg', 'jpeg', 'gif', 'webp'] },
+            ],
+        });
+        if (!result) return;
+        const ext = result.fileName.split('.').pop().toLowerCase();
+
+        if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext)) {
+            // Truecolor — decode via Image + canvas
+            const blob = new Blob([new Uint8Array(result.data)]);
+            const bitmap = await createImageBitmap(blob);
+            const canvas = document.createElement('canvas');
+            canvas.width = bitmap.width;
+            canvas.height = bitmap.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(bitmap, 0, 0);
+            bitmap.close();
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            this._showQuantizeDialog(imageData.data, canvas.width, canvas.height, (newDoc) => {
+                this._openInNewTab(result.fileName, newDoc);
+            });
+            return;
+        }
+
+        try {
+            let newDoc;
+            const arrayBuffer = result.data instanceof ArrayBuffer ? result.data : new Uint8Array(result.data).buffer;
+            if (ext === 'pix8') {
+                newDoc = loadPix8(arrayBuffer);
+            } else if (ext === 'bmp') {
+                newDoc = importBMP(arrayBuffer);
+            } else if (ext === 'pcx') {
+                newDoc = importPCX(arrayBuffer);
+            } else {
+                this._showToast('Unsupported file format');
+                return;
+            }
+            this._openInNewTab(result.fileName, newDoc);
+        } catch (err) {
+            this._showToast('Error loading file: ' + err.message, 3000);
+        }
     }
 
     _openInNewTab(filename, newDoc) {

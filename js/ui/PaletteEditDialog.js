@@ -245,7 +245,7 @@ export class PaletteEditDialog {
         toolbar.appendChild(sortSel);
 
         btn('Used', () => this._actionUsed());
-        this._negBtn = btn('Neg', () => this._actionNeg());
+        this._invertBtn = btn('Invert', () => this._actionInvert());
         this._grayBtn = btn('Gray', () => this._actionGray());
         this._spreadBtn = btn('Spread', () => this._actionSpread());
         this._mergeBtn = btn('Merge', () => this._actionMerge());
@@ -847,7 +847,7 @@ export class PaletteEditDialog {
         this.bus.emit('document-changed');
     }
 
-    _actionNeg() {
+    _actionInvert() {
         this._pushPaletteHistory();
         const [lo, hi] = this._sortedRange();
         const pal = this.doc.palette;

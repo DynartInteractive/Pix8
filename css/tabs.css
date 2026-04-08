@@ -37,6 +37,17 @@
     max-width: 150px;
 }
 
+.tab-name-input {
+    font-size: 12px;
+    color: var(--text);
+    background: var(--bg-input);
+    border: 1px solid var(--accent);
+    border-radius: 2px;
+    padding: 1px 4px;
+    outline: none;
+    max-width: 150px;
+}
+
 .tab-close {
     font-size: 14px;
     line-height: 1;

@@ -5,6 +5,7 @@
 ### Added
 - **Palette Copy/Paste** -- Copy and Paste buttons in palette editor toolbar copy a range of colors and paste them at the current selection start, works across tabs for cross-document palette transfer
 - **Palette Merge** -- Merge now properly averages all colors in the selected range, remaps all pixel data to the first index, and zeros out freed slots
+- **Close confirmation** -- browser shows beforeunload prompt on refresh/close; Electron shows native quit dialog
 
 ### Fixed
 - Toolbar flyout groups (Shapes, Select) now correctly switch tools -- clicking Ellipse, Filled Ellipse, Filled Rect, or Ellipse Select no longer falls back to the first tool in the group
@@ -12,6 +13,12 @@
 - Palette editor operations (Zap Unused, Used highlight, X-Swap, X-Flip, and all index remapping) now consider all animation frames, not just the current one
 - Dialogs no longer close when mousedown starts inside and mouseup lands on the overlay
 - Layer clone no longer crashes when layer data size doesn't match dimensions (fixes palette editor crash after paste)
+- Paste now allocates layer data at the correct clipboard dimensions, fixing save crash when pasted layer size differs from document size
+- Double-click rename works in Electron (DOM re-render between clicks broke dblclick events)
+- Replaced all `prompt()` calls with inline inputs and Dialog -- `prompt()` is not supported in Electron
+- Keyboard shortcuts no longer fire while a dialog is open
+- File > Open now uses native Electron dialog for reliable file loading
+- Fixed Electron IPC file data transfer (Node.js Buffer pool was truncating file content)
 
 ### Changed
 - Frame panel height increased to 120px with vertically centered thumbnails
@@ -19,6 +26,9 @@
 - Extracted `Dialog` helper class (`js/ui/Dialog.js`) -- all 10 modal dialogs now share overlay, header, footer, keyboard, and click-to-close logic
 - Inline-styled dialogs (New Document, Resize) migrated to CSS custom properties for theme consistency
 - Removed old two-step Copy operation from palette editor (replaced by Copy/Paste range)
+- Electron: DevTools via `DEVTOOLS=1 npm run electron` with F12 toggle
+- Renamed palette editor "Neg" button to "Invert"
+- Electron build output moved from `dist/` to `release/` to prevent packaging build artifacts into the app
 
 ## [1.3.0] - 2026-04-07
 
