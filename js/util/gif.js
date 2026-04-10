@@ -1,8 +1,9 @@
 import { Renderer } from '../render/Renderer.js';
+import { TRANSPARENT } from '../constants.js';
 
 /**
  * GIF89a animation encoder for indexed-color documents.
- * Supports 256-color palette, per-frame delay, and infinite looping.
+ * Supports 256-color palette, per-frame delay, transparency, and infinite looping.
  */
 export function exportGIF(doc, options = {}) {
     const scale = options.scale || 1;
@@ -13,6 +14,24 @@ export function exportGIF(doc, options = {}) {
     const frames = doc.frames;
     const frameIndices = options.frameIndices || frames.map((_, i) => i);
     const numFrames = frameIndices.length;
+
+    // Find a palette index to use as transparent color.
+    // Scan all frames' layer data to find an unused index; fall back to 255.
+    const usedIndices = new Uint8Array(256);
+    for (const fi of frameIndices) {
+        const frame = frames[fi];
+        if (!frame || !frame.layerData) continue;
+        for (const ld of frame.layerData) {
+            for (let i = 0; i < ld.data.length; i++) {
+                const v = ld.data[i];
+                if (v !== TRANSPARENT && v < 256) usedIndices[v] = 1;
+            }
+        }
+    }
+    let transparentIndex = 255;
+    for (let i = 255; i >= 0; i--) {
+        if (!usedIndices[i]) { transparentIndex = i; break; }
+    }
 
     // Build reverse lookup: "r,g,b" -> palette index
     const colorToIndex = new Map();
@@ -93,7 +112,7 @@ export function exportGIF(doc, options = {}) {
                 const a = rgba[srcOff + 3];
                 const dstIdx = oy * outWidth + ox;
                 if (a < 128) {
-                    indices[dstIdx] = 0;
+                    indices[dstIdx] = transparentIndex;
                 } else {
                     const key = (rgba[srcOff] << 16) | (rgba[srcOff + 1] << 8) | rgba[srcOff + 2];
                     indices[dstIdx] = colorToIndex.get(key) ?? 0;
@@ -108,9 +127,9 @@ export function exportGIF(doc, options = {}) {
         write([
             0x21, 0xF9, // extension introducer, GCE label
             0x04,       // block size
-            0x00,       // packed: disposal=0 (none), no user input, no transparency
+            0x09,       // packed: disposal=2 (restore to bg), no user input, transparency=1
             delayCs & 0xFF, (delayCs >> 8) & 0xFF, // delay
-            0x00,       // transparent color index (unused)
+            transparentIndex, // transparent color index
             0x00,       // block terminator
         ]);
 

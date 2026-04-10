@@ -435,20 +435,26 @@ export function _showExportDialog() {
                         break;
                     }
                     case 'gif': {
-                        this.doc.saveCurrentFrame();
+                        const wasAnimated = this.doc.animationEnabled;
+                        if (!wasAnimated) this._ensureSingleFrame();
+                        else this.doc.saveCurrentFrame();
                         const scale = parseInt(scaleSelect.value) || 1;
                         const loopCount = parseInt(loopSelect.value) || 0;
                         const sel = framesSelect.value;
                         const frameIndices = sel === 'all' ? null : tagGroups.find(g => g.tag === sel)?.indices;
                         const filename = sel === 'all' ? 'export.gif' : `${sel}.gif`;
                         const blob = exportGIF(this.doc, { scale, loopCount, frameIndices });
+                        if (!wasAnimated) this._clearTempFrame();
                         downloadBlob(blob, filename);
                         break;
                     }
                     case 'spx': {
-                        this.doc.saveCurrentFrame();
+                        const wasAnimated = this.doc.animationEnabled;
+                        if (!wasAnimated) this._ensureSingleFrame();
+                        else this.doc.saveCurrentFrame();
                         const spriteName = nameInput.value.trim() || defaultName;
                         const zipBlob = await exportSPXZip(this.doc, { name: spriteName });
+                        if (!wasAnimated) this._clearTempFrame();
                         downloadBlob(zipBlob, spriteName + '.zip');
                         break;
                     }
@@ -487,12 +493,10 @@ export function _showExportDialog() {
         { value: 'png', label: 'PNG' },
         { value: 'bmp', label: 'BMP (8-bit indexed)' },
         { value: 'pcx', label: 'PCX (8-bit indexed)' },
+        { value: 'gif', label: 'GIF' },
+        { value: 'spx', label: 'SPX (sprite sheet)' },
         { value: 'ico', label: 'ICO (Windows icon)' },
     ];
-    if (this.doc.animationEnabled && this.doc.frames.length > 0) {
-        formats.push({ value: 'gif', label: 'GIF (animated)' });
-        formats.push({ value: 'spx', label: 'SPX (sprite sheet)' });
-    }
     for (const f of formats) {
         const opt = document.createElement('option');
         opt.value = f.value;
@@ -520,9 +524,9 @@ export function _showExportDialog() {
         tagGroups[g].indices = indices;
     }
 
-    // Frames selector
+    // Frames selector (only shown when animation is enabled)
     const framesRow = document.createElement('div');
-    framesRow.style.cssText = ROW_STYLE;
+    framesRow.style.cssText = ROW_STYLE + (this.doc.animationEnabled ? '' : 'display:none;');
     const framesLabel = document.createElement('label');
     framesLabel.textContent = 'Frames:';
     framesLabel.style.cssText = labelStyle;
@@ -560,9 +564,9 @@ export function _showExportDialog() {
     scaleRow.appendChild(scaleSelect);
     gifOptions.appendChild(scaleRow);
 
-    // Loop
+    // Loop (only shown when animation is enabled)
     const loopRow = document.createElement('div');
-    loopRow.style.cssText = ROW_STYLE;
+    loopRow.style.cssText = ROW_STYLE + (this.doc.animationEnabled ? '' : 'display:none;');
     const loopLabel = document.createElement('label');
     loopLabel.textContent = 'Loop:';
     loopLabel.style.cssText = labelStyle;
@@ -578,9 +582,9 @@ export function _showExportDialog() {
     loopRow.appendChild(loopSelect);
     gifOptions.appendChild(loopRow);
 
-    // GIF info
+    // GIF info (only shown when animation is enabled)
     const gifInfo = document.createElement('div');
-    gifInfo.style.cssText = 'font-size:11px;color:var(--text-dim);';
+    gifInfo.style.cssText = 'font-size:11px;color:var(--text-dim);' + (this.doc.animationEnabled ? '' : 'display:none;');
     const updateGifInfo = () => {
         const sel = framesSelect.value;
         const count = sel === 'all' ? frames.length : tagGroups.find(g => g.tag === sel)?.indices.length || 0;
@@ -661,4 +665,28 @@ export function _showExportDialog() {
     });
 
     dlg.show();
+}
+
+export function _ensureSingleFrame() {
+    this.doc.animationEnabled = true;
+    this.doc.activeFrameIndex = 0;
+    this.doc.frames = [{
+        tag: '',
+        delay: 100,
+        layerData: this.doc.layers.map(l => ({
+            data: l.data.slice(),
+            opacity: l.opacity,
+            textData: l.textData ? { ...l.textData } : null,
+            offsetX: l.offsetX,
+            offsetY: l.offsetY,
+            width: l.width,
+            height: l.height,
+        })),
+    }];
+}
+
+export function _clearTempFrame() {
+    this.doc.animationEnabled = false;
+    this.doc.frames = [];
+    this.doc.activeFrameIndex = 0;
 }

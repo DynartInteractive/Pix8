@@ -5,6 +5,8 @@
 ### Added
 - **Fixed-size layers** — Layer > Set Fixed Size locks a layer to exact dimensions, preventing auto-extend when drawing outside its bounds. Layer > Remove Fixed Size restores normal auto-extend behavior. Both operations are undoable
 - **ICO export** — Export as ICO (Windows icon) in the Export dialog. Lists all valid fixed-size square layers at standard icon sizes (16, 24, 32, 48, 64, 128, 256) with checkboxes. 8-bit indexed BMP entries with transparency via AND mask
+- **GIF transparency** — GIF export now preserves transparent pixels using an unused palette index as the transparent color
+- **GIF/SPX for still images** — GIF and SPX export are now available for non-animated documents (single-frame export); animation-specific options (frames selector, loop count) are hidden when not applicable
 - Toast notification when attempting to draw outside a fixed-size layer
 - `isFixedSize` flag persisted in .pix8 project files
 

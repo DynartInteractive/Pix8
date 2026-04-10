@@ -16,7 +16,7 @@ Try it online: https://pix8.dynart.net
 - **Independent layers** -- each layer has its own size and position, auto-extends when drawing outside bounds
 - **Fixed-size layers** -- lock a layer to exact dimensions via Layer > Set Fixed Size, preventing auto-extend; used for ICO export workflow
 - **Layer operations** -- add, delete, reorder, duplicate, toggle visibility, solo, rename, opacity (0-100%), trim to content, crop to canvas, set/remove fixed size, show border
-- **Unified export dialog** -- single "Export as..." dialog (Ctrl+Shift+E) with format selector (BMP, PCX, PNG, GIF, SPX) and format-specific options
+- **Unified export dialog** -- single "Export as..." dialog (Ctrl+Shift+E) with format selector (BMP, PCX, PNG, GIF, SPX, ICO) and format-specific options
 - **Drawing tools** -- Brush, Eraser, Color Picker, Rectangle, Filled Rectangle, Ellipse, Filled Ellipse, Flood Fill
 - **Brush/Eraser line mode** -- hold Shift to draw straight lines, Ctrl to snap angles to 22.5-degree increments
 - **Brush right-click** -- draw with background color using right mouse button
@@ -30,7 +30,7 @@ Try it online: https://pix8.dynart.net
 - **Multi-document tabs** -- independent documents with separate layers, palette, undo history, and zoom/pan state
 - **Clipboard** -- Cut, Copy, Copy Merged, Paste, Paste in Place; automatic palette color remapping between documents; system clipboard paste with dithering
 - **Truecolor image import** -- File > Open supports PNG/JPG/GIF/WebP with median-cut quantization and dithering (None/Floyd-Steinberg/Ordered Bayer)
-- **Frame animation** -- sprite-sheet animation with per-frame pixel data; frame timeline with thumbnails, tag groups, play/pause/stop, tag-based playback
+- **Frame animation** -- sprite-sheet animation with per-frame pixel data; frame timeline with thumbnails, tag groups, play/pause/stop, tag-based playback; GIF and SPX export also available for still (non-animated) images
 - **Onion skinning** -- red-tinted previous frames, blue-tinted next frames; configurable opacity; extended mode (+-2 frames)
 - **GrafX2-style palette editor** -- range selection, HSV color picker (saturation/value square + hue strip), RGB sliders with hex input, batch operations (Swap, X-Swap, Copy, Flip, X-Flip, Neg, Gray, Spread, Merge, Sort, Reduce, Zap Unused, Used highlight), 6-bit VGA mode, palette Load/Save (PAL/BMP/PCX)
 
@@ -50,7 +50,7 @@ Try it online: https://pix8.dynart.net
 | PCX | Yes | Yes | 8-bit indexed color with RLE compression |
 | PNG | Yes | Yes | Truecolor import with quantization, indexed export |
 | JPG/GIF/WebP | Yes | -- | Truecolor import with quantization |
-| GIF | -- | Yes | Animated GIF89a with LZW compression |
+| GIF | -- | Yes | GIF89a with LZW compression, transparency, still or animated |
 | SPX | -- | Yes | Sprite XML + PCX sprite sheet(s) as ZIP |
 | ICO | -- | Yes | Windows icon with multiple sizes from fixed-size layers |
 | PAL | Yes | Yes | 6-bit raw binary or 8-bit JASC-PAL text |
