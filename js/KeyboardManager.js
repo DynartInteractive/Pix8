@@ -22,7 +22,10 @@ export function _setupKeyboardShortcuts(tools) {
 
     document.addEventListener('keydown', (e) => {
         // Don't handle if typing in an input or a dialog is open
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+        const tag = e.target.tagName;
+        const aeTag = document.activeElement && document.activeElement.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+        if (aeTag === 'INPUT' || aeTag === 'TEXTAREA' || aeTag === 'SELECT') return;
         if (e.target.closest('.palette-dialog-overlay')) return;
 
         // Tool shortcuts

@@ -60,6 +60,47 @@ export function _rotateImage(clockwise) {
 
     doc.width = oldH;
     doc.height = oldW;
+
+    // Apply same rotation to all animation frames
+    if (doc.animationEnabled) {
+        doc.saveCurrentFrame();
+        for (const frame of doc.frames) {
+            if (!frame.layerData) continue;
+            for (const ld of frame.layerData) {
+                const { width: lw, height: lh, data, offsetX, offsetY } = ld;
+                const newLW = lh;
+                const newLH = lw;
+                const newData = new Uint16Array(newLW * newLH);
+                newData.fill(TRANSPARENT);
+                for (let row = 0; row < lh; row++) {
+                    for (let col = 0; col < lw; col++) {
+                        const px = data[row * lw + col];
+                        let newCol, newRow;
+                        if (clockwise) {
+                            newCol = lh - 1 - row;
+                            newRow = col;
+                        } else {
+                            newCol = row;
+                            newRow = lw - 1 - col;
+                        }
+                        newData[newRow * newLW + newCol] = px;
+                    }
+                }
+                ld.data = newData;
+                ld.width = newLW;
+                ld.height = newLH;
+                if (clockwise) {
+                    ld.offsetX = oldH - 1 - (offsetY + lh - 1);
+                    ld.offsetY = offsetX;
+                } else {
+                    ld.offsetX = offsetY;
+                    ld.offsetY = oldW - 1 - (offsetX + lw - 1);
+                }
+            }
+        }
+        doc.loadFrame(doc.activeFrameIndex);
+    }
+
     doc.selection.resize(oldH, oldW);
 
     // Snapshot all layers after rotation
@@ -231,6 +272,44 @@ export function _applyResize(newW, newH, resizeContent, anchor = 'nw') {
                 layer.offsetY += dy;
             }
         }
+    }
+
+    // Apply same resize to all animation frames
+    if (doc.animationEnabled) {
+        doc.saveCurrentFrame();
+        for (const frame of doc.frames) {
+            if (!frame.layerData) continue;
+            for (const ld of frame.layerData) {
+                if (resizeContent) {
+                    const sx = newW / oldW;
+                    const sy = newH / oldH;
+                    const newLayerW = Math.max(1, Math.round(ld.width * sx));
+                    const newLayerH = Math.max(1, Math.round(ld.height * sy));
+                    const newData = new Uint16Array(newLayerW * newLayerH);
+                    newData.fill(TRANSPARENT);
+                    for (let y = 0; y < newLayerH; y++) {
+                        for (let x = 0; x < newLayerW; x++) {
+                            const srcX = Math.floor(x / sx);
+                            const srcY = Math.floor(y / sy);
+                            if (srcX < ld.width && srcY < ld.height) {
+                                newData[y * newLayerW + x] = ld.data[srcY * ld.width + srcX];
+                            }
+                        }
+                    }
+                    ld.data = newData;
+                    ld.width = newLayerW;
+                    ld.height = newLayerH;
+                    ld.offsetX = Math.round(ld.offsetX * sx);
+                    ld.offsetY = Math.round(ld.offsetY * sy);
+                } else {
+                    const dx = anchor.includes('w') ? 0 : anchor.includes('e') ? newW - oldW : Math.round((newW - oldW) / 2);
+                    const dy = anchor.includes('n') ? 0 : anchor.includes('s') ? newH - oldH : Math.round((newH - oldH) / 2);
+                    ld.offsetX += dx;
+                    ld.offsetY += dy;
+                }
+            }
+        }
+        doc.loadFrame(doc.activeFrameIndex);
     }
 
     // Resize selection mask

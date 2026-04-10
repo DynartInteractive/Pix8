@@ -1,8 +1,50 @@
 import { TRANSPARENT } from '../constants.js';
 
+// ─── Color Deduplication ────────────────────────────────────────────────
+
+function _deduplicateColors(colors, threshold) {
+    const threshSq = threshold * threshold;
+    const merged = [];
+    const used = new Uint8Array(colors.length);
+    // Sort by count descending so dominant colors absorb minor variants
+    const sorted = colors.map((c, i) => ({ ...c, _idx: i }));
+    sorted.sort((a, b) => (b.count || 1) - (a.count || 1));
+
+    for (const entry of sorted) {
+        if (used[entry._idx]) continue;
+        let rSum = entry.color[0] * (entry.count || 1);
+        let gSum = entry.color[1] * (entry.count || 1);
+        let bSum = entry.color[2] * (entry.count || 1);
+        let totalW = entry.count || 1;
+
+        for (const other of sorted) {
+            if (used[other._idx] || other._idx === entry._idx) continue;
+            const dr = entry.color[0] - other.color[0];
+            const dg = entry.color[1] - other.color[1];
+            const db = entry.color[2] - other.color[2];
+            if (dr * dr + dg * dg + db * db <= threshSq) {
+                const w = other.count || 1;
+                rSum += other.color[0] * w;
+                gSum += other.color[1] * w;
+                bSum += other.color[2] * w;
+                totalW += w;
+                used[other._idx] = 1;
+            }
+        }
+        used[entry._idx] = 1;
+        merged.push({
+            color: [Math.round(rSum / totalW), Math.round(gSum / totalW), Math.round(bSum / totalW)],
+            count: totalW,
+        });
+    }
+    return merged;
+}
+
 // ─── Median Cut ─────────────────────────────────────────────────────────
 
 export function medianCut(colors, n) {
+    // Merge near-identical colors (distance <= 4) before splitting
+    colors = _deduplicateColors(colors, 4);
     if (colors.length <= n) return colors;
 
     let buckets = [colors];

@@ -118,7 +118,12 @@ export function _showDropdown(anchorEl, menuName, items) {
             this._closeActiveMenu();
         }
     };
-    setTimeout(() => document.addEventListener('pointerdown', this._closeMenuListener), 0);
+    const listener = this._closeMenuListener;
+    setTimeout(() => {
+        if (this._closeMenuListener === listener) {
+            document.addEventListener('pointerdown', listener);
+        }
+    }, 0);
 }
 
 export function _showFileMenu() {
@@ -257,15 +262,12 @@ export function _showLayerMenu() {
         '-',
         { label: 'Merge Selected', disabled: !multiSelected, action: () => this._mergeSelectedLayers() },
         { label: 'Merge All', action: () => {
-            this.undoManager.beginOperation();
-            const flat = this.doc.flattenToLayer();
-            this.doc.layers = [flat];
-            this.doc.activeLayerIndex = 0;
-            this.doc.selectedLayerIndices.clear();
-            this.doc.selectedLayerIndices.add(0);
-            this.undoManager.endOperation();
-            this.bus.emit('layer-changed');
-            this.bus.emit('document-changed');
+            const doc = this.doc;
+            if (doc.layers.length < 2) return;
+            // Select all layers and delegate to merge selected
+            doc.selectedLayerIndices.clear();
+            for (let i = 0; i < doc.layers.length; i++) doc.selectedLayerIndices.add(i);
+            this._mergeSelectedLayers();
         }},
     ]);
 }

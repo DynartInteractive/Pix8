@@ -141,26 +141,22 @@ export function _openInNewTab(filename, newDoc) {
     document.getElementById('status-size').textContent = `${newDoc.width} x ${newDoc.height}`;
 }
 
-export function _openTruecolorFile(file) {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
+export async function _openTruecolorFile(file) {
+    try {
+        const bitmap = await createImageBitmap(file);
         const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
+        canvas.width = bitmap.width;
+        canvas.height = bitmap.height;
         const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0);
-        const imageData = ctx.getImageData(0, 0, img.width, img.height);
-        URL.revokeObjectURL(url);
-        this._showQuantizeDialog(imageData.data, img.width, img.height, (doc) => {
+        ctx.drawImage(bitmap, 0, 0);
+        bitmap.close();
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        this._showQuantizeDialog(imageData.data, canvas.width, canvas.height, (doc) => {
             this._openInNewTab(file.name, doc);
         });
-    };
-    img.onerror = () => {
-        URL.revokeObjectURL(url);
+    } catch {
         this._showToast('Error loading image file', 3000);
-    };
-    img.src = url;
+    }
 }
 
 export function _showQuantizeDialog(rgbaData, width, height, callback) {

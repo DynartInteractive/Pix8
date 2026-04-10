@@ -17,8 +17,8 @@ export class FramePanel {
 
         this._buildUI();
 
-        this.bus.on('layer-changed', () => this._updateCurrentThumb());
-        this.bus.on('document-changed', () => this._updateCurrentThumb());
+        this.bus.on('layer-changed', () => this._updateAllThumbs());
+        this.bus.on('document-changed', () => this._updateAllThumbs());
         this.bus.on('frame-changed', () => this.render());
         this.bus.on('animation-changed', () => this.render());
     }
@@ -303,16 +303,13 @@ export class FramePanel {
         }
     }
 
-    _updateCurrentThumb() {
+    _updateAllThumbs() {
         if (!this.doc.animationEnabled || !this.panel.classList.contains('visible')) return;
-        // Re-render just the active frame's thumbnail
         const thumbs = this._list.querySelectorAll('.frame-thumb');
-        const idx = this.doc.activeFrameIndex;
-        if (thumbs[idx]) {
-            const canvas = thumbs[idx].querySelector('canvas');
-            if (canvas) {
-                this._renderThumb(canvas, this.doc.frames[idx], idx);
-            }
+        const frames = this.doc.frames;
+        for (let i = 0; i < thumbs.length && i < frames.length; i++) {
+            const canvas = thumbs[i].querySelector('canvas');
+            if (canvas) this._renderThumb(canvas, frames[i], i);
         }
     }
 

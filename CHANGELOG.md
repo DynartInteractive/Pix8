@@ -10,6 +10,17 @@
 - Toast notification when attempting to draw outside a fixed-size layer
 - `isFixedSize` flag persisted in .pix8 project files
 
+### Fixed
+- **Truecolor import palette deduplication** — near-identical colors (within Euclidean distance 4) are now merged before median-cut quantization, preventing palettes full of near-duplicate entries when importing pixel art PNGs
+- **Truecolor import consistency** — browser and Electron now use the same `createImageBitmap` decode path, avoiding ICC color management differences that produced different palettes
+- **Merge All undo** — Merge All now uses the same structural undo entry as Merge Selected, properly restoring all layers and animation frames on undo
+- **Keyboard shortcuts firing in rename inputs** — added `document.activeElement` guard as fallback in KeyboardManager; fixed CanvasView Shift key handler missing INPUT tag check (could trigger re-renders that destroyed active rename inputs)
+- **Menu close listener leak** — fixed `setTimeout` race condition in menu dropdown that could leak duplicate `pointerdown` listeners on rapid menu hover switching
+- **Palette editor corrupting animation frames** — X-Swap, X-Flip, Merge, and other index-remapping palette operations now properly snapshot and restore all animation frame data on cancel and undo; previously only live layers were restored, leaving non-active frames with remapped indices and the old palette
+- **Image resize/rotate not applied to all frames** — Resize and Rotate now transform stored per-frame layer data (offsets, dimensions, pixel data), not just the active frame's live layers
+- **Frame thumbnails not updating on visibility change** — toggling layer visibility now refreshes all frame thumbnails, not just the active frame
+- **Brush preview stuck on tool switch** — overlay canvas is now cleared before setting up the new tool's preview, fixing stale brush previews when switching to tools without hover preview via keyboard shortcut
+
 ## [1.4.2] - 2026-04-10
 
 ### Added

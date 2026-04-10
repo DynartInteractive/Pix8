@@ -136,8 +136,16 @@ export class UndoManager {
         if (entry.type === 'palette') {
             this.doc.palette.import(entry.beforePalette);
             this.doc.layers = entry.beforeLayers;
+            if (entry.beforeFrames) {
+                this.doc.frames = entry.beforeFrames.map(f => ({
+                    ...f,
+                    layerData: f.layerData ? f.layerData.map(ld => ({ ...ld, data: ld.data.slice() })) : null,
+                }));
+                this.doc.loadFrame(this.doc.activeFrameIndex);
+            }
             this.redoStack.push(entry);
             this.bus.emit('palette-changed');
+            this.bus.emit('frame-changed');
             this.bus.emit('layer-changed');
             this.bus.emit('document-changed');
             return;
@@ -276,8 +284,16 @@ export class UndoManager {
         if (entry.type === 'palette') {
             this.doc.palette.import(entry.afterPalette);
             this.doc.layers = entry.afterLayers;
+            if (entry.afterFrames) {
+                this.doc.frames = entry.afterFrames.map(f => ({
+                    ...f,
+                    layerData: f.layerData ? f.layerData.map(ld => ({ ...ld, data: ld.data.slice() })) : null,
+                }));
+                this.doc.loadFrame(this.doc.activeFrameIndex);
+            }
             this.undoStack.push(entry);
             this.bus.emit('palette-changed');
+            this.bus.emit('frame-changed');
             this.bus.emit('layer-changed');
             this.bus.emit('document-changed');
             return;

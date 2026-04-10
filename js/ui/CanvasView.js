@@ -79,10 +79,9 @@ export class CanvasView {
 
     set activeTool(tool) {
         this._activeTool = tool;
+        this.clearOverlay();
         if (tool && tool.onHover) {
             tool.onHover(this._lastDocX, this._lastDocY);
-        } else {
-            this.clearOverlay();
         }
         this._updateCursor();
     }
@@ -152,7 +151,8 @@ export class CanvasView {
 
         document.addEventListener('keydown', (e) => {
             const tag = e.target.tagName;
-            if (e.code === 'Space' && !e.repeat && tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT') {
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+            if (e.code === 'Space' && !e.repeat) {
                 this._spaceDown = true;
                 this._spacePanned = false;
                 this._panStartX = this._lastScreenX;

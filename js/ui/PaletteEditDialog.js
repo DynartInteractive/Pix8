@@ -51,7 +51,12 @@ export class PaletteEditDialog {
 
     open() {
         this._originalPalette = this.doc.palette.export();
+        if (this.doc.animationEnabled) this.doc.saveCurrentFrame();
         this._originalLayers = this.doc.layers.map(l => l.clone(true));
+        this._originalFrames = this.doc.animationEnabled ? this.doc.frames.map(f => ({
+            ...f,
+            layerData: f.layerData ? f.layerData.map(ld => ({ ...ld, data: ld.data.slice() })) : null,
+        })) : null;
         this._buildDOM();
         document.body.appendChild(this._overlay);
     }
@@ -1310,8 +1315,13 @@ export class PaletteEditDialog {
 
     _ok() {
         // Push palette change to document undo history
+        if (this.doc.animationEnabled) this.doc.saveCurrentFrame();
         const afterPalette = this.doc.palette.export();
         const afterLayers = this.doc.layers.map(l => l.clone(true));
+        const afterFrames = this.doc.animationEnabled ? this.doc.frames.map(f => ({
+            ...f,
+            layerData: f.layerData ? f.layerData.map(ld => ({ ...ld, data: ld.data.slice() })) : null,
+        })) : null;
         // Check if anything actually changed
         let changed = false;
         for (let i = 0; i < 256; i++) {
@@ -1336,6 +1346,8 @@ export class PaletteEditDialog {
                 afterPalette: afterPalette,
                 beforeLayers: this._originalLayers,
                 afterLayers: afterLayers,
+                beforeFrames: this._originalFrames,
+                afterFrames: afterFrames,
             });
             this.undoManager.redoStack = [];
         }
@@ -1345,6 +1357,13 @@ export class PaletteEditDialog {
     _cancel() {
         this.doc.palette.import(this._originalPalette);
         this.doc.layers = this._originalLayers;
+        if (this._originalFrames) {
+            this.doc.frames = this._originalFrames.map(f => ({
+                ...f,
+                layerData: f.layerData ? f.layerData.map(ld => ({ ...ld, data: ld.data.slice() })) : null,
+            }));
+            this.doc.loadFrame(this.doc.activeFrameIndex);
+        }
         this.bus.emit('palette-changed');
         this.bus.emit('document-changed');
         this._destroy();

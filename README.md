@@ -183,3 +183,4 @@ webpack.config.js  Webpack configuration
 ## Known Issues
 
 - **Subpixel rendering glitches at fractional display scaling** -- grid lines, guides, and selection marching ants may appear misaligned or jittery on displays with scaling other than 100% or 200% (e.g., 125%, 150%). This is caused by CSS pixels not aligning with physical device pixels at fractional `devicePixelRatio` values. Fixing this would require DPR-aware canvas rendering throughout the entire canvas stack -- not yet planned.
+- **Electron save dialog broken on KDE Plasma 6 / Wayland** -- `dialog.showSaveDialog` is instantly dismissed by the compositor, so File > Save and Export do nothing in the Electron desktop app. File > Open (which uses `showOpenDialog`) works normally. This is an upstream Electron/Chromium bug with the Wayland file dialog portal. Workaround: use the browser version for saving, or run the Electron app under X11 (`GDK_BACKEND=x11 npm run electron`).
