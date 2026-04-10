@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.5.0] - 2026-04-10
+
+### Added
+- **Fixed-size layers** — Layer > Set Fixed Size locks a layer to exact dimensions, preventing auto-extend when drawing outside its bounds. Layer > Remove Fixed Size restores normal auto-extend behavior. Both operations are undoable
+- **ICO export** — Export as ICO (Windows icon) in the Export dialog. Lists all valid fixed-size square layers at standard icon sizes (16, 24, 32, 48, 64, 128, 256) with checkboxes. 8-bit indexed BMP entries with transparency via AND mask
+- Toast notification when attempting to draw outside a fixed-size layer
+- `isFixedSize` flag persisted in .pix8 project files
+
+## [1.4.2] - 2026-04-10
+
+### Added
+- **Undoable frame operations** — Add frame, delete frame, move frame (left/right), and edit frame properties (tag/delay) now support undo/redo
+
+### Fixed
+- Paste (Ctrl+V), system clipboard paste, Import as Layer, and new text layer creation are now undoable — previously these operations added a layer without pushing an undo entry, so Ctrl+Z would skip past the paste and undo the wrong operation
+
 ## [1.4.1] - 2026-04-09
 
 ### Fixed

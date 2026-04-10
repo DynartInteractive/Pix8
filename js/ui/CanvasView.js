@@ -250,6 +250,15 @@ export class CanvasView {
         if ((e.button === 0 || e.button === 2) && this._activeTool) {
             this._pointerDown = true;
             const pos = this.screenToDoc(e.clientX, e.clientY);
+            // Warn if clicking outside a fixed-size layer
+            const layer = this.doc.getActiveLayer();
+            if (layer && layer.isFixedSize) {
+                const lx = pos.x - layer.offsetX;
+                const ly = pos.y - layer.offsetY;
+                if (lx < 0 || lx >= layer.width || ly < 0 || ly >= layer.height) {
+                    this.bus.emit('show-toast', 'Cannot draw outside fixed-size layer');
+                }
+            }
             this._activeTool.onPointerDown(pos.x, pos.y, e);
             this.render();
             this.container.setPointerCapture(e.pointerId);

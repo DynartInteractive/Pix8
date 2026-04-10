@@ -22,6 +22,7 @@ export function savePix8(doc) {
             offsetY: l.offsetY,
             type: l.type || 'raster',
             textData: l.textData || null,
+            isFixedSize: l.isFixedSize || false,
         })),
         activeLayerIndex: doc.activeLayerIndex,
         fgColorIndex: doc.fgColorIndex,
@@ -121,6 +122,7 @@ export function loadPix8(arrayBuffer) {
         layer.offsetY = layerMeta.offsetY ?? 0;
         layer.type = layerMeta.type || 'raster';
         layer.textData = layerMeta.textData || null;
+        layer.isFixedSize = !!layerMeta.isFixedSize;
         const layerByteSize = lw * lh * 2;
         const u8View = new Uint8Array(layer.data.buffer, layer.data.byteOffset, layer.data.byteLength);
         u8View.set(bytes.slice(offset, offset + layerByteSize));
@@ -488,6 +490,126 @@ export function importPAL(bytes) {
     }
     while (colors.length < 256) colors.push([0, 0, 0]);
     return colors;
+}
+
+// ─── ICO (Windows Icon) ─────────────────────────────────────────────────
+
+const VALID_ICO_SIZES = new Set([16, 24, 32, 48, 64, 128, 256]);
+
+export function getValidICOLayers(doc) {
+    const result = [];
+    for (let i = 0; i < doc.layers.length; i++) {
+        const layer = doc.layers[i];
+        if (layer.isFixedSize && layer.width === layer.height && VALID_ICO_SIZES.has(layer.width)) {
+            result.push({ index: i, layer, size: layer.width });
+        }
+    }
+    return result;
+}
+
+export function exportICO(doc, layerIndices) {
+    const count = layerIndices.length;
+    const headerSize = 6;
+    const dirSize = 16 * count;
+
+    // Build each image entry (BMP DIB + palette + pixels + AND mask)
+    const entries = [];
+    for (const idx of layerIndices) {
+        const layer = doc.layers[idx];
+        const w = layer.width;
+        const h = layer.height;
+        const rowStride = Math.ceil(w / 4) * 4; // pixel rows padded to 4 bytes
+        const andRowStride = Math.ceil(w / 32) * 4; // AND mask rows padded to 4 bytes
+        const pixelDataSize = rowStride * h;
+        const andMaskSize = andRowStride * h;
+        const paletteSize = 256 * 4;
+        const dibHeaderSize = 40;
+        const totalSize = dibHeaderSize + paletteSize + pixelDataSize + andMaskSize;
+
+        const buffer = new ArrayBuffer(totalSize);
+        const view = new DataView(buffer);
+        const bytes = new Uint8Array(buffer);
+
+        // BITMAPINFOHEADER (40 bytes)
+        view.setUint32(0, 40, true);             // header size
+        view.setInt32(4, w, true);               // width
+        view.setInt32(8, h * 2, true);           // height (doubled for ICO: XOR + AND)
+        view.setUint16(12, 1, true);             // color planes
+        view.setUint16(14, 8, true);             // bits per pixel
+        view.setUint32(16, 0, true);             // compression (none)
+        view.setUint32(20, pixelDataSize + andMaskSize, true); // image size
+        view.setInt32(24, 0, true);              // h resolution
+        view.setInt32(28, 0, true);              // v resolution
+        view.setUint32(32, 256, true);           // colors used
+        view.setUint32(36, 0, true);             // important colors
+
+        // Color table (256 entries: B, G, R, 0)
+        let off = 40;
+        for (let i = 0; i < 256; i++) {
+            const [r, g, b] = doc.palette.getColor(i);
+            bytes[off++] = b;
+            bytes[off++] = g;
+            bytes[off++] = r;
+            bytes[off++] = 0;
+        }
+
+        // Pixel data (bottom-to-top, TRANSPARENT → index 0)
+        const pixelOffset = dibHeaderSize + paletteSize;
+        for (let y = 0; y < h; y++) {
+            const srcRow = h - 1 - y; // BMP is bottom-up
+            const dstRowStart = pixelOffset + y * rowStride;
+            for (let x = 0; x < w; x++) {
+                const v = layer.getPixel(x, srcRow);
+                bytes[dstRowStart + x] = v === TRANSPARENT ? 0 : v;
+            }
+        }
+
+        // AND mask (1-bit, bottom-to-top: 1 = transparent, 0 = opaque)
+        const andOffset = pixelOffset + pixelDataSize;
+        for (let y = 0; y < h; y++) {
+            const srcRow = h - 1 - y;
+            const dstRowStart = andOffset + y * andRowStride;
+            for (let x = 0; x < w; x++) {
+                const v = layer.getPixel(x, srcRow);
+                if (v === TRANSPARENT) {
+                    bytes[dstRowStart + (x >> 3)] |= (0x80 >> (x & 7));
+                }
+            }
+        }
+
+        entries.push({ buffer, w, h });
+    }
+
+    // Compute offsets
+    const totalFileSize = headerSize + dirSize + entries.reduce((s, e) => s + e.buffer.byteLength, 0);
+    const fileBuffer = new ArrayBuffer(totalFileSize);
+    const fileView = new DataView(fileBuffer);
+    const fileBytes = new Uint8Array(fileBuffer);
+
+    // ICO header
+    fileView.setUint16(0, 0, true);       // reserved
+    fileView.setUint16(2, 1, true);       // type: 1 = ICO
+    fileView.setUint16(4, count, true);   // image count
+
+    // Directory entries + image data
+    let dataOffset = headerSize + dirSize;
+    for (let i = 0; i < count; i++) {
+        const e = entries[i];
+        const dirOff = headerSize + i * 16;
+        fileBytes[dirOff + 0] = e.w >= 256 ? 0 : e.w;  // width (0 = 256)
+        fileBytes[dirOff + 1] = e.h >= 256 ? 0 : e.h;  // height (0 = 256)
+        fileBytes[dirOff + 2] = 0;                       // color count (0 = 256+)
+        fileBytes[dirOff + 3] = 0;                       // reserved
+        fileView.setUint16(dirOff + 4, 1, true);         // color planes
+        fileView.setUint16(dirOff + 6, 8, true);         // bits per pixel
+        fileView.setUint32(dirOff + 8, e.buffer.byteLength, true);  // image size
+        fileView.setUint32(dirOff + 12, dataOffset, true);          // data offset
+
+        fileBytes.set(new Uint8Array(e.buffer), dataOffset);
+        dataOffset += e.buffer.byteLength;
+    }
+
+    return new Blob([fileBuffer], { type: 'image/x-icon' });
 }
 
 // ─── File download helper ───────────────────────────────────────────────

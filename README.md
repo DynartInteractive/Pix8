@@ -14,7 +14,8 @@ Try it online: https://pix8.dynart.net
 - **Configurable grid** -- user-settable grid size with snap-to-grid support (View > Grid Settings)
 - **Rulers and guides** -- pixel rulers along canvas edges; drag from ruler to create custom guide lines with snap support
 - **Independent layers** -- each layer has its own size and position, auto-extends when drawing outside bounds
-- **Layer operations** -- add, delete, reorder, duplicate, toggle visibility, solo, rename, opacity (0-100%), trim to content, crop to canvas, show border
+- **Fixed-size layers** -- lock a layer to exact dimensions via Layer > Set Fixed Size, preventing auto-extend; used for ICO export workflow
+- **Layer operations** -- add, delete, reorder, duplicate, toggle visibility, solo, rename, opacity (0-100%), trim to content, crop to canvas, set/remove fixed size, show border
 - **Unified export dialog** -- single "Export as..." dialog (Ctrl+Shift+E) with format selector (BMP, PCX, PNG, GIF, SPX) and format-specific options
 - **Drawing tools** -- Brush, Eraser, Color Picker, Rectangle, Filled Rectangle, Ellipse, Filled Ellipse, Flood Fill
 - **Brush/Eraser line mode** -- hold Shift to draw straight lines, Ctrl to snap angles to 22.5-degree increments
@@ -37,7 +38,7 @@ Try it online: https://pix8.dynart.net
 
 - **Toast notifications** -- non-blocking slide-down messages replace browser alert dialogs
 - **Desktop-style menus** -- click to open, hover to switch, same for toolbar flyout groups
-- **Undo/Redo** -- Ctrl+Z / Ctrl+Shift+Z, 50-step history including palette edits and all layer operations (add, delete, move, duplicate, rename, visibility, opacity)
+- **Undo/Redo** -- Ctrl+Z / Ctrl+Shift+Z, 50-step history including palette edits, all layer operations (add, delete, move, duplicate, rename, visibility, opacity), frame operations (add, delete, move, edit), and paste/import
 - **SVG icons** -- all toolbar and panel icons are standalone SVG files in `images/` for easy customization
 
 ### File Formats
@@ -51,6 +52,7 @@ Try it online: https://pix8.dynart.net
 | JPG/GIF/WebP | Yes | -- | Truecolor import with quantization |
 | GIF | -- | Yes | Animated GIF89a with LZW compression |
 | SPX | -- | Yes | Sprite XML + PCX sprite sheet(s) as ZIP |
+| ICO | -- | Yes | Windows icon with multiple sizes from fixed-size layers |
 | PAL | Yes | Yes | 6-bit raw binary or 8-bit JASC-PAL text |
 
 ### Electron Desktop App
@@ -168,7 +170,7 @@ webpack.config.js  Webpack configuration
 ## Technical Notes
 
 - All pixel data is stored as `Uint16Array` with values 0-255 for palette indices and 256 for transparent pixels
-- Layers are independently sized and positioned -- drawing outside bounds auto-extends with 16px growth padding
+- Layers are independently sized and positioned -- drawing outside bounds auto-extends with 16px growth padding (unless the layer is fixed-size)
 - Rendering composites layers bottom-to-top via palette lookup into RGBA `ImageData`, drawn with `imageSmoothingEnabled = false`
 - GIF export uses a native LZW encoder -- no external encoding libraries
 - SPX export uses skyline bin packing to minimize sprite sheet area within 320x200 VGA constraints

@@ -223,6 +223,41 @@ export class UndoManager {
             return;
         }
 
+        if (entry.type === 'frame-add' || entry.type === 'frame-delete') {
+            this.doc.frames = entry.beforeFrames.map(f => ({
+                ...f,
+                layerData: f.layerData ? f.layerData.map(ld => ({ ...ld, data: ld.data.slice() })) : null,
+            }));
+            this.doc.activeFrameIndex = entry.beforeActiveFrame;
+            this.doc.loadFrame(this.doc.activeFrameIndex);
+            this.redoStack.push(entry);
+            this.bus.emit('frame-changed');
+            this.bus.emit('animation-changed');
+            this.bus.emit('layer-changed');
+            this.bus.emit('document-changed');
+            return;
+        }
+
+        if (entry.type === 'frame-move') {
+            const [frame] = this.doc.frames.splice(entry.toIndex, 1);
+            this.doc.frames.splice(entry.fromIndex, 0, frame);
+            this.doc.activeFrameIndex = entry.fromIndex;
+            this.redoStack.push(entry);
+            this.bus.emit('frame-changed');
+            this.bus.emit('animation-changed');
+            return;
+        }
+
+        if (entry.type === 'frame-edit') {
+            const frame = this.doc.frames[entry.frameIndex];
+            frame.tag = entry.beforeTag;
+            frame.delay = entry.beforeDelay;
+            this.redoStack.push(entry);
+            this.bus.emit('frame-changed');
+            this.bus.emit('animation-changed');
+            return;
+        }
+
         const layer = this.doc.layers[entry.layerIndex];
         if (layer) {
             layer.restoreSnapshot(entry.beforeData, entry.beforeGeometry);
@@ -325,6 +360,41 @@ export class UndoManager {
             this.undoStack.push(entry);
             this.bus.emit('layer-changed');
             this.bus.emit('document-changed');
+            return;
+        }
+
+        if (entry.type === 'frame-add' || entry.type === 'frame-delete') {
+            this.doc.frames = entry.afterFrames.map(f => ({
+                ...f,
+                layerData: f.layerData ? f.layerData.map(ld => ({ ...ld, data: ld.data.slice() })) : null,
+            }));
+            this.doc.activeFrameIndex = entry.afterActiveFrame;
+            this.doc.loadFrame(this.doc.activeFrameIndex);
+            this.undoStack.push(entry);
+            this.bus.emit('frame-changed');
+            this.bus.emit('animation-changed');
+            this.bus.emit('layer-changed');
+            this.bus.emit('document-changed');
+            return;
+        }
+
+        if (entry.type === 'frame-move') {
+            const [frame] = this.doc.frames.splice(entry.fromIndex, 1);
+            this.doc.frames.splice(entry.toIndex, 0, frame);
+            this.doc.activeFrameIndex = entry.toIndex;
+            this.undoStack.push(entry);
+            this.bus.emit('frame-changed');
+            this.bus.emit('animation-changed');
+            return;
+        }
+
+        if (entry.type === 'frame-edit') {
+            const frame = this.doc.frames[entry.frameIndex];
+            frame.tag = entry.afterTag;
+            frame.delay = entry.afterDelay;
+            this.undoStack.push(entry);
+            this.bus.emit('frame-changed');
+            this.bus.emit('animation-changed');
             return;
         }
 

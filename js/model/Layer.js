@@ -14,6 +14,7 @@ export class Layer {
         this.opacity = 1.0;      // 0.0 - 1.0
         this.type = 'raster';    // 'raster' or 'text'
         this.textData = null;    // { text, fontFamily, fontSize, bold, italic, underline, colorIndex }
+        this.isFixedSize = false;
         // Uint16Array so we can store 0-255 (valid palette) + 256 (transparent)
         this.data = new Uint16Array(width * height);
         this.data.fill(TRANSPARENT);
@@ -75,6 +76,7 @@ export class Layer {
             this.data[ly * this.width + lx] = colorIndex;
             return;
         }
+        if (this.isFixedSize) return; // Do not grow fixed-size layers
         // Need to grow
         this._grow(docX, docY);
         const lx2 = docX - this.offsetX;
@@ -87,6 +89,7 @@ export class Layer {
      * Call before a batch of setPixelAutoExtend calls to avoid multiple reallocations.
      */
     ensureRect(docX0, docY0, docX1, docY1) {
+        if (this.isFixedSize) return;
         const curLeft = this.offsetX;
         const curTop = this.offsetY;
         const curRight = this.offsetX + this.width;
@@ -155,6 +158,7 @@ export class Layer {
         copy.opacity = this.opacity;
         copy.type = this.type;
         copy.textData = this.textData ? { ...this.textData } : null;
+        copy.isFixedSize = this.isFixedSize;
         copy.data = this.data.slice();
         return copy;
     }
@@ -164,6 +168,7 @@ export class Layer {
             data: this.data.slice(),
             type: this.type,
             textData: this.textData ? { ...this.textData } : null,
+            isFixedSize: this.isFixedSize,
         };
     }
 
@@ -189,6 +194,7 @@ export class Layer {
             this.data = snapshot.data.slice();
             this.type = snapshot.type || 'raster';
             this.textData = snapshot.textData ? { ...snapshot.textData } : null;
+            this.isFixedSize = !!snapshot.isFixedSize;
         }
     }
 

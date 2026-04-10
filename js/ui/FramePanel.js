@@ -2,9 +2,10 @@ import { Renderer } from '../render/Renderer.js';
 import Dialog from './Dialog.js';
 
 export class FramePanel {
-    constructor(doc, bus) {
+    constructor(doc, bus, undoManager) {
         this.doc = doc;
         this.bus = bus;
+        this.undoManager = undoManager;
         this.panel = document.getElementById('frame-panel');
         this._list = null;
         this._playing = false;
@@ -20,6 +21,19 @@ export class FramePanel {
         this.bus.on('document-changed', () => this._updateCurrentThumb());
         this.bus.on('frame-changed', () => this.render());
         this.bus.on('animation-changed', () => this.render());
+    }
+
+    _snapshotFrames() {
+        return {
+            activeFrameIndex: this.doc.activeFrameIndex,
+            frames: this.doc.frames.map(f => ({
+                ...f,
+                layerData: f.layerData ? f.layerData.map(ld => ({
+                    ...ld,
+                    data: ld.data.slice(),
+                })) : null,
+            })),
+        };
     }
 
     _buildUI() {
@@ -42,28 +56,58 @@ export class FramePanel {
         };
 
         btn('images/icon-add.svg', 'Add frame', () => {
+            const before = this._snapshotFrames();
             this.doc.addFrame();
+            const after = this._snapshotFrames();
+            this.undoManager.pushEntry({
+                type: 'frame-add',
+                beforeFrames: before.frames,
+                afterFrames: after.frames,
+                beforeActiveFrame: before.activeFrameIndex,
+                afterActiveFrame: after.activeFrameIndex,
+            });
             this.bus.emit('frame-changed');
             this.bus.emit('animation-changed');
         });
         btn('images/icon-delete.svg', 'Delete frame', () => {
             if (this.doc.frames.length <= 1) return;
             if (!confirm('Delete this frame?')) return;
+            const before = this._snapshotFrames();
             this.doc.deleteFrame(this.doc.activeFrameIndex);
+            const after = this._snapshotFrames();
+            this.undoManager.pushEntry({
+                type: 'frame-delete',
+                beforeFrames: before.frames,
+                afterFrames: after.frames,
+                beforeActiveFrame: before.activeFrameIndex,
+                afterActiveFrame: after.activeFrameIndex,
+            });
             this.bus.emit('frame-changed');
             this.bus.emit('animation-changed');
             this.bus.emit('layer-changed');
         });
         btn('images/icon-move-left.svg', 'Move left', () => {
             this.doc.saveCurrentFrame();
-            if (this.doc.moveFrame(this.doc.activeFrameIndex, -1)) {
+            const from = this.doc.activeFrameIndex;
+            if (this.doc.moveFrame(from, -1)) {
+                this.undoManager.pushEntry({
+                    type: 'frame-move',
+                    fromIndex: from,
+                    toIndex: this.doc.activeFrameIndex,
+                });
                 this.bus.emit('frame-changed');
                 this.bus.emit('animation-changed');
             }
         });
         btn('images/icon-move-right.svg', 'Move right', () => {
             this.doc.saveCurrentFrame();
-            if (this.doc.moveFrame(this.doc.activeFrameIndex, 1)) {
+            const from = this.doc.activeFrameIndex;
+            if (this.doc.moveFrame(from, 1)) {
+                this.undoManager.pushEntry({
+                    type: 'frame-move',
+                    fromIndex: from,
+                    toIndex: this.doc.activeFrameIndex,
+                });
                 this.bus.emit('frame-changed');
                 this.bus.emit('animation-changed');
             }
@@ -288,8 +332,22 @@ export class FramePanel {
             buttons: [
                 { label: 'Cancel' },
                 { label: 'OK', primary: true, onClick: () => {
-                    frame.tag = tagInput.value.trim();
-                    frame.delay = Math.max(1, parseInt(delayInput.value) || 100);
+                    const newTag = tagInput.value.trim();
+                    const newDelay = Math.max(1, parseInt(delayInput.value) || 100);
+                    if (newTag !== frame.tag || newDelay !== frame.delay) {
+                        const beforeTag = frame.tag;
+                        const beforeDelay = frame.delay;
+                        frame.tag = newTag;
+                        frame.delay = newDelay;
+                        this.undoManager.pushEntry({
+                            type: 'frame-edit',
+                            frameIndex: index,
+                            beforeTag,
+                            afterTag: newTag,
+                            beforeDelay,
+                            afterDelay: newDelay,
+                        });
+                    }
                     this.render();
                     dlg.close();
                 }},

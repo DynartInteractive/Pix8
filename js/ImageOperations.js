@@ -1,6 +1,6 @@
 import { TRANSPARENT } from './constants.js';
 import { Layer } from './model/Layer.js';
-import { INPUT_STYLE } from './ui/dialogHelpers.js';
+import { INPUT_STYLE, ROW_STYLE } from './ui/dialogHelpers.js';
 import Dialog from './ui/Dialog.js';
 
 /**
@@ -523,4 +523,86 @@ export function _selectByAlpha() {
     sel.active = true;
     sel._pureShape = null;
     this.bus.emit('selection-changed');
+}
+
+export function _setFixedSize() {
+    const layer = this.doc.getActiveLayer();
+    if (!layer || layer.type === 'text') return;
+
+    const dlg = Dialog.create({
+        title: 'Set Fixed Size',
+        width: '260px',
+        buttons: [
+            { label: 'Cancel' },
+            { label: 'OK', primary: true, onClick: () => {
+                const newW = Math.max(1, Math.min(4096, parseInt(wInput.value) || layer.width));
+                const newH = Math.max(1, Math.min(4096, parseInt(hInput.value) || layer.height));
+                dlg.close();
+                this.undoManager.beginOperation();
+                // Crop/extend layer to new size (top-left aligned)
+                const newData = new Uint16Array(newW * newH);
+                newData.fill(TRANSPARENT);
+                const copyW = Math.min(layer.width, newW);
+                const copyH = Math.min(layer.height, newH);
+                for (let y = 0; y < copyH; y++) {
+                    for (let x = 0; x < copyW; x++) {
+                        newData[y * newW + x] = layer.data[y * layer.width + x];
+                    }
+                }
+                layer.data = newData;
+                layer.width = newW;
+                layer.height = newH;
+                layer.isFixedSize = true;
+                this.undoManager.endOperation();
+                this.bus.emit('layer-changed');
+                this.bus.emit('document-changed');
+            }},
+        ],
+        enterButton: 1,
+    });
+
+    const body = dlg.body;
+    body.style.cssText = 'display:flex;flex-direction:column;gap:8px;padding:8px 0;';
+
+    const wRow = document.createElement('div');
+    wRow.style.cssText = ROW_STYLE;
+    const wLabel = document.createElement('label');
+    wLabel.textContent = 'Width:';
+    wLabel.style.cssText = 'font-size:13px;color:var(--text);width:50px;';
+    const wInput = document.createElement('input');
+    wInput.type = 'number';
+    wInput.value = layer.width;
+    wInput.min = 1;
+    wInput.max = 4096;
+    wInput.style.cssText = INPUT_STYLE + 'width:80px;';
+    wRow.appendChild(wLabel);
+    wRow.appendChild(wInput);
+    body.appendChild(wRow);
+
+    const hRow = document.createElement('div');
+    hRow.style.cssText = ROW_STYLE;
+    const hLabel = document.createElement('label');
+    hLabel.textContent = 'Height:';
+    hLabel.style.cssText = 'font-size:13px;color:var(--text);width:50px;';
+    const hInput = document.createElement('input');
+    hInput.type = 'number';
+    hInput.value = layer.height;
+    hInput.min = 1;
+    hInput.max = 4096;
+    hInput.style.cssText = INPUT_STYLE + 'width:80px;';
+    hRow.appendChild(hLabel);
+    hRow.appendChild(hInput);
+    body.appendChild(hRow);
+
+    dlg.show(wInput);
+}
+
+export function _removeFixedSize() {
+    const layer = this.doc.getActiveLayer();
+    if (!layer || !layer.isFixedSize) return;
+    this.undoManager.beginOperation();
+    layer.isFixedSize = false;
+    this.undoManager.endOperation();
+    this.bus.emit('layer-changed');
+    this.bus.emit('document-changed');
 }

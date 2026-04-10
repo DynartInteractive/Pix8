@@ -4,7 +4,7 @@ import {
     savePix8, loadPix8,
     exportBMP, importBMP,
     exportPCX, importPCX,
-    exportPNG, downloadBlob
+    exportPNG, exportICO, getValidICOLayers, downloadBlob
 } from './util/io.js';
 import { exportGIF } from './util/gif.js';
 import { exportSPXZip } from './util/spx.js';
@@ -372,6 +372,7 @@ export function _importAsLayer() {
     input.addEventListener('change', () => {
         if (!input.files[0]) return;
         this._parseImageFile(input.files[0], (tempDoc, file) => {
+            const before = this._snapshotLayerMeta();
             if (this.doc.animationEnabled) this.doc.saveCurrentFrame();
             const importedLayer = tempDoc.getActiveLayer();
             const layerName = file.name.replace(/\.[^.]+$/, '');
@@ -382,6 +383,8 @@ export function _importAsLayer() {
             newLayer.offsetX = importedLayer.offsetX;
             newLayer.offsetY = importedLayer.offsetY;
             if (this.doc.animationEnabled) this.doc.saveCurrentFrame();
+            const after = this._snapshotLayerMeta();
+            this._pushLayerAddEntry(newLayer, this.doc.activeLayerIndex, before, after);
             this.bus.emit('layer-changed');
             this.bus.emit('document-changed');
         });
@@ -449,6 +452,16 @@ export function _showExportDialog() {
                         downloadBlob(zipBlob, spriteName + '.zip');
                         break;
                     }
+                    case 'ico': {
+                        const selected = [];
+                        for (const cb of icoOptions.querySelectorAll('input[type="checkbox"]')) {
+                            if (cb.checked) selected.push(parseInt(cb.dataset.layerIndex));
+                        }
+                        if (selected.length === 0) break;
+                        const blob = exportICO(this.doc, selected);
+                        downloadBlob(blob, 'export.ico');
+                        break;
+                    }
                 }
             }},
         ],
@@ -469,10 +482,12 @@ export function _showExportDialog() {
     formatLabel.style.cssText = labelStyle;
     const formatSelect = document.createElement('select');
     formatSelect.style.cssText = selectStyle;
+    const icoLayers = getValidICOLayers(this.doc);
     const formats = [
         { value: 'png', label: 'PNG' },
         { value: 'bmp', label: 'BMP (8-bit indexed)' },
         { value: 'pcx', label: 'PCX (8-bit indexed)' },
+        { value: 'ico', label: 'ICO (Windows icon)' },
     ];
     if (this.doc.animationEnabled && this.doc.frames.length > 0) {
         formats.push({ value: 'gif', label: 'GIF (animated)' });
@@ -606,10 +621,43 @@ export function _showExportDialog() {
 
     body.appendChild(spxOptions);
 
+    // ── ICO options ─────────────────────────────────────────────
+    const icoOptions = document.createElement('div');
+    icoOptions.style.cssText = 'display:none;flex-direction:column;gap:4px;';
+
+    if (icoLayers.length === 0) {
+        const noLayers = document.createElement('div');
+        noLayers.style.cssText = 'font-size:12px;color:var(--text-dim);padding:4px 0;';
+        noLayers.textContent = 'No valid ICO layers. Use Layer \u203A Set Fixed Size to create square layers at standard icon sizes (16, 24, 32, 48, 64, 128, 256).';
+        icoOptions.appendChild(noLayers);
+    } else {
+        const icoLabel = document.createElement('div');
+        icoLabel.style.cssText = 'font-size:12px;color:var(--text-dim);';
+        icoLabel.textContent = 'Include layers:';
+        icoOptions.appendChild(icoLabel);
+        for (const entry of icoLayers) {
+            const row = document.createElement('label');
+            row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text);cursor:pointer;padding:2px 0;';
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.checked = true;
+            cb.dataset.layerIndex = entry.index;
+            cb.style.cssText = 'accent-color:var(--accent);';
+            row.appendChild(cb);
+            const label = document.createElement('span');
+            label.textContent = `${entry.layer.name} \u2014 ${entry.size}\u00D7${entry.size}`;
+            row.appendChild(label);
+            icoOptions.appendChild(row);
+        }
+    }
+
+    body.appendChild(icoOptions);
+
     // Format change handler
     formatSelect.addEventListener('change', () => {
         gifOptions.style.display = formatSelect.value === 'gif' ? 'flex' : 'none';
         spxOptions.style.display = formatSelect.value === 'spx' ? 'flex' : 'none';
+        icoOptions.style.display = formatSelect.value === 'ico' ? 'flex' : 'none';
     });
 
     dlg.show();

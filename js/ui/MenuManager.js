@@ -246,6 +246,10 @@ export function _showLayerMenu() {
         { label: 'Convert to Bitmap', disabled: !isTextLayer, action: () => this._convertTextToBitmap() },
         { label: 'Trim to Content', disabled: isTextLayer, action: () => this._trimLayerToContent() },
         { label: 'Crop to Canvas', disabled: isTextLayer, action: () => this._cropLayerToCanvas() },
+        '-',
+        { label: 'Set Fixed Size...', disabled: isTextLayer, action: () => this._setFixedSize() },
+        { label: 'Remove Fixed Size', disabled: !activeLayer || !activeLayer.isFixedSize, action: () => this._removeFixedSize() },
+        '-',
         { label: (this.canvasView.showLayerBorder ? '\u2713 ' : '') + 'Show Border', action: () => {
             this.canvasView.showLayerBorder = !this.canvasView.showLayerBorder;
             this.canvasView.render();

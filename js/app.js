@@ -146,7 +146,7 @@ class App {
         this.colorSelector = new ColorSelector(this.doc, this.bus);
         this.palettePanel = new PalettePanel(this.doc, this.bus, this.undoManager);
         this.layersPanel = new LayersPanel(this.doc, this.bus, this.undoManager);
-        this.framePanel = new FramePanel(this.doc, this.bus);
+        this.framePanel = new FramePanel(this.doc, this.bus, this.undoManager);
 
         // FG/BG color picker via palette editor
         this.bus.on('open-palette-picker', (target) => {
@@ -198,6 +198,7 @@ class App {
         });
 
         // Text tool dialog
+        this.bus.on('show-toast', (msg) => this._showToast(msg));
         this.bus.on('open-text-dialog', (opts) => this._showTextDialog(opts));
 
         // Keyboard shortcuts
@@ -525,6 +526,34 @@ class App {
         this.bus.emit('animation-changed');
     }
 
+    _snapshotLayerMeta() {
+        return {
+            activeIndex: this.doc.activeLayerIndex,
+            selected: new Set(this.doc.selectedLayerIndices),
+            frames: this.doc.animationEnabled ? this.doc.frames.map(f => ({
+                ...f,
+                layerData: f.layerData ? f.layerData.map(ld => ({
+                    ...ld,
+                    data: ld.data.slice(),
+                })) : null,
+            })) : null,
+        };
+    }
+
+    _pushLayerAddEntry(layer, insertIndex, before, after) {
+        this.undoManager.pushEntry({
+            type: 'layer-add',
+            insertIndex,
+            layer,
+            beforeActiveIndex: before.activeIndex,
+            afterActiveIndex: after.activeIndex,
+            beforeSelected: before.selected,
+            afterSelected: after.selected,
+            beforeFrames: before.frames,
+            afterFrames: after.frames,
+        });
+    }
+
     // ── Clipboard Operations ────────────────────────────────────────
 
     _copy() {
@@ -597,6 +626,7 @@ class App {
         }
 
         // Save current frame before modifying layers
+        const before = this._snapshotLayerMeta();
         if (this.doc.animationEnabled) this.doc.saveCurrentFrame();
         const newLayer = this.doc.addLayer('Pasted');
         newLayer.width = cb.width;
@@ -607,6 +637,8 @@ class App {
         newLayer.offsetY = originY;
         // Update current frame with the pasted content
         if (this.doc.animationEnabled) this.doc.saveCurrentFrame();
+        const after = this._snapshotLayerMeta();
+        this._pushLayerAddEntry(newLayer, this.doc.activeLayerIndex, before, after);
         this.bus.emit('layer-changed');
         this.bus.emit('document-changed');
     }
@@ -642,6 +674,7 @@ class App {
 
                 this._showPasteDitherDialog(imageData.data, canvas.width, canvas.height, (indices, w, h) => {
                     // Create a new layer with the pasted data
+                    const before = this._snapshotLayerMeta();
                     if (this.doc.animationEnabled) this.doc.saveCurrentFrame();
                     const newLayer = this.doc.addLayer('Pasted');
                     newLayer.width = w;
@@ -651,6 +684,8 @@ class App {
                     newLayer.offsetX = Math.round((this.doc.width - w) / 2);
                     newLayer.offsetY = Math.round((this.doc.height - h) / 2);
                     if (this.doc.animationEnabled) this.doc.saveCurrentFrame();
+                    const after = this._snapshotLayerMeta();
+                    this._pushLayerAddEntry(newLayer, this.doc.activeLayerIndex, before, after);
                     this.bus.emit('layer-changed');
                     this.bus.emit('document-changed');
                 });
@@ -743,6 +778,7 @@ class App {
                         colorIndex: selectedColorIndex,
                     };
                     if (opts.isNew) {
+                        const before = this._snapshotLayerMeta();
                         if (this.doc.animationEnabled) this.doc.saveCurrentFrame();
                         const layer = this.doc.addLayer('Text: ' + text.split('\n')[0].substring(0, 20));
                         layer.type = 'text';
@@ -750,6 +786,8 @@ class App {
                         layer.offsetX = opts.x || 0;
                         layer.offsetY = opts.y || 0;
                         if (this.doc.animationEnabled) this.doc.saveCurrentFrame();
+                        const after = this._snapshotLayerMeta();
+                        this._pushLayerAddEntry(layer, this.doc.activeLayerIndex, before, after);
                     } else {
                         opts.layer.textData = textData;
                         opts.layer.name = 'Text: ' + text.split('\n')[0].substring(0, 20);
