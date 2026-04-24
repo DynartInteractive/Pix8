@@ -2,13 +2,8 @@
 
 ## [Unreleased]
 
-### Added
-- **Help menu** — new Help menu with "About Pix8..." item showing version, short project description, and links to website, GitHub repository, and developer profile
-- **Selection size readout** — status bar shows `W: w H: h` of the active selection's axis-aligned bounding box; updates live while drawing a new selection, moving it, and dragging the resize handles
-
-### Changed
-- **Asset cache-busting** — `ASSET_VERSION` constant in `js/constants.js` and matching `?v=1.5.0` query strings on all CSS/JS/image references force browsers to re-download assets on new releases; bumping the version in three spots (`package.json`, `ASSET_VERSION`, `index.html`) is now part of the release process (see README)
-- Site domain updated to https://pix8.app (README, About dialog, deploy script)
+### Fixed
+- **FG/BG swap button** — clicking the swap button between the color swatches no longer also opens the palette picker for FG; the swap button's click event was bubbling up to the parent swatch area and triggering the palette-picker click handler right after swapping
 
 ## [1.5.0] - 2026-04-10
 
@@ -17,6 +12,10 @@
 - **ICO export** — Export as ICO (Windows icon) in the Export dialog. Lists all valid fixed-size square layers at standard icon sizes (16, 24, 32, 48, 64, 128, 256) with checkboxes. 8-bit indexed BMP entries with transparency via AND mask
 - **GIF transparency** — GIF export now preserves transparent pixels using an unused palette index as the transparent color
 - **GIF/SPX for still images** — GIF and SPX export are now available for non-animated documents (single-frame export); animation-specific options (frames selector, loop count) are hidden when not applicable
+- **Help menu** — new Help menu with "About Pix8..." item showing version, short project description, and links to website, GitHub repository, and developer profile
+- **Selection size readout** — status bar shows `W: w H: h` of the active selection's axis-aligned bounding box; updates live while drawing a new selection, moving it, and dragging the resize handles
+- **Asset cache-busting** — `ASSET_VERSION` constant in `js/constants.js` and matching `?v=` query strings on all CSS/JS/image references force browsers to re-download assets on new releases; bumping the version in three spots (`package.json`, `ASSET_VERSION`, `index.html`) is now part of the release process (see README)
+- Site hosted at https://pix8.app
 - Toast notification when attempting to draw outside a fixed-size layer
 - `isFixedSize` flag persisted in .pix8 project files
 

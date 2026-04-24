@@ -8,11 +8,16 @@ export class ColorSelector {
         this.swapBtn = document.getElementById('color-swap-btn');
         this.label = document.getElementById('color-index-label');
 
-        this.swapBtn.addEventListener('click', () => {
+        this.swapBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
             this.doc.swapColors();
             this.bus.emit('fg-color-changed');
             this.bus.emit('bg-color-changed');
             this.update();
+        });
+        this.swapBtn.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
         });
 
         const swatchArea = document.getElementById('color-selector-swatches');
