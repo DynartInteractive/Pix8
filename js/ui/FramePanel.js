@@ -1,5 +1,6 @@
 import { Renderer } from '../render/Renderer.js';
 import Dialog from './Dialog.js';
+import { withVersion } from '../constants.js';
 
 export class FramePanel {
     constructor(doc, bus, undoManager) {
@@ -45,7 +46,7 @@ export class FramePanel {
             const b = document.createElement('button');
             b.className = 'icon-btn';
             const img = document.createElement('img');
-            img.src = iconSrc;
+            img.src = withVersion(iconSrc);
             img.className = 'panel-icon';
             img.draggable = false;
             b.appendChild(img);

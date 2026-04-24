@@ -1,4 +1,4 @@
-import { ZOOM_LEVELS } from '../constants.js';
+import { ZOOM_LEVELS, ASSET_VERSION } from '../constants.js';
 import { Brush } from '../model/Brush.js';
 import { ROW_STYLE } from './dialogHelpers.js';
 import Dialog from './Dialog.js';
@@ -62,6 +62,9 @@ export function _handleMenu(menu) {
             break;
         case 'layer':
             this._showLayerMenu();
+            break;
+        case 'help':
+            this._showHelpMenu();
             break;
     }
 }
@@ -320,4 +323,57 @@ export function _showGridSettingsDialog() {
     dlg.body.appendChild(presetRow);
 
     dlg.show(sizeInput);
+}
+
+export function _showHelpMenu() {
+    const anchor = document.querySelector('[data-menu="help"]');
+    this._showDropdown(anchor, 'help', [
+        { label: 'About Pix8...', action: () => this._showAboutDialog() },
+    ]);
+}
+
+export function _showAboutDialog() {
+    const dlg = Dialog.create({
+        title: 'About Pix8',
+        width: '380px',
+        buttons: [
+            { label: 'Close', primary: true },
+        ],
+        enterButton: 0,
+    });
+
+    dlg.body.style.cssText = 'display:flex;flex-direction:column;gap:10px;padding:12px 4px;font-size:13px;color:var(--text);line-height:1.5;';
+
+    const title = document.createElement('div');
+    title.style.cssText = 'font-size:16px;font-weight:bold;';
+    title.textContent = `Pix8 v${ASSET_VERSION}`;
+    dlg.body.appendChild(title);
+
+    const desc = document.createElement('div');
+    desc.textContent = 'A 256-color indexed pixel art editor for the browser, inspired by VGA-era workflows where every color comes from a shared 256-entry palette.';
+    dlg.body.appendChild(desc);
+
+    const linkStyle = 'color:var(--accent);text-decoration:none;';
+    const makeRow = (label, url) => {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;gap:8px;';
+        const lbl = document.createElement('span');
+        lbl.textContent = label;
+        lbl.style.cssText = 'min-width:84px;color:var(--text-muted, #aaa);';
+        const link = document.createElement('a');
+        link.href = url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.textContent = url;
+        link.style.cssText = linkStyle;
+        row.appendChild(lbl);
+        row.appendChild(link);
+        return row;
+    };
+
+    dlg.body.appendChild(makeRow('Website:', 'https://pix8.app'));
+    dlg.body.appendChild(makeRow('Repository:', 'https://github.com/DynartInteractive/Pix8'));
+    dlg.body.appendChild(makeRow('Developer:', 'https://github.com/goph-R'));
+
+    dlg.show(dlg.getButton(0));
 }

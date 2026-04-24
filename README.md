@@ -2,7 +2,7 @@
 
 A browser-based 256-color indexed pixel art editor inspired by VGA-era graphics tools. Built with vanilla JavaScript and webpack.
 
-Try it online: https://pix8.dynart.net
+Try it online: https://pix8.app
 
 ![Pix8 Screenshot](screenshot-v1.4.0.png)
 
@@ -103,6 +103,16 @@ For development with auto-rebuild:
 npm run dev      # webpack watch mode (in one terminal)
 npm start        # serve at http://localhost:3000 (in another terminal)
 ```
+
+## Releasing
+
+To force browsers to pick up new CSS/JS/image files on the production site, bump the version in **three** places on every release:
+
+1. `package.json` -- `"version"` field
+2. `js/constants.js` -- `ASSET_VERSION` constant (used by the About dialog and appended to tool/panel icon URLs via the `withVersion()` helper)
+3. `index.html` -- find/replace every `?v=1.5.0` query string on stylesheet, script, and `<img>` tags
+
+Then `npm run build` and deploy. The new query strings give browsers fresh URLs, bypassing any previously cached response.
 
 ## Keyboard Shortcuts
 

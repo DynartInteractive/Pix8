@@ -4,13 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pix8 — Indexed Color Pixel Art Editor</title>
-    <link rel="stylesheet" href="css/main.css">
-    <link rel="stylesheet" href="css/toolbar.css">
-    <link rel="stylesheet" href="css/canvas-area.css">
-    <link rel="stylesheet" href="css/layers-panel.css">
-    <link rel="stylesheet" href="css/palette-panel.css">
-    <link rel="stylesheet" href="css/frames.css">
-    <link rel="stylesheet" href="css/tabs.css">
+    <link rel="stylesheet" href="css/main.css?v=1.5.0">
+    <link rel="stylesheet" href="css/toolbar.css?v=1.5.0">
+    <link rel="stylesheet" href="css/canvas-area.css?v=1.5.0">
+    <link rel="stylesheet" href="css/layers-panel.css?v=1.5.0">
+    <link rel="stylesheet" href="css/palette-panel.css?v=1.5.0">
+    <link rel="stylesheet" href="css/frames.css?v=1.5.0">
+    <link rel="stylesheet" href="css/tabs.css?v=1.5.0">
 </head>
 <body>
     <div id="app">
@@ -22,6 +22,7 @@
             <div class="menu-item" data-menu="selection">Selection</div>
             <div class="menu-item" data-menu="image">Image</div>
             <div class="menu-item" data-menu="layer">Layer</div>
+            <div class="menu-item" data-menu="help">Help</div>
         </div>
 
         <!-- Tab Bar -->
@@ -63,11 +64,11 @@
                 <div class="panel-header">
                     <span>Layers</span>
                     <div class="panel-actions" id="layers-actions">
-                        <button class="icon-btn" id="layer-add-btn" title="Add layer"><img src="images/icon-add.svg" class="panel-icon" draggable="false"></button>
-                        <button class="icon-btn" id="layer-del-btn" title="Delete layer"><img src="images/icon-delete.svg" class="panel-icon" draggable="false"></button>
-                        <button class="icon-btn" id="layer-up-btn" title="Move up"><img src="images/icon-move-up.svg" class="panel-icon" draggable="false"></button>
-                        <button class="icon-btn" id="layer-down-btn" title="Move down"><img src="images/icon-move-down.svg" class="panel-icon" draggable="false"></button>
-                        <button class="icon-btn" id="layer-dup-btn" title="Duplicate"><img src="images/icon-duplicate.svg" class="panel-icon" draggable="false"></button>
+                        <button class="icon-btn" id="layer-add-btn" title="Add layer"><img src="images/icon-add.svg?v=1.5.0" class="panel-icon" draggable="false"></button>
+                        <button class="icon-btn" id="layer-del-btn" title="Delete layer"><img src="images/icon-delete.svg?v=1.5.0" class="panel-icon" draggable="false"></button>
+                        <button class="icon-btn" id="layer-up-btn" title="Move up"><img src="images/icon-move-up.svg?v=1.5.0" class="panel-icon" draggable="false"></button>
+                        <button class="icon-btn" id="layer-down-btn" title="Move down"><img src="images/icon-move-down.svg?v=1.5.0" class="panel-icon" draggable="false"></button>
+                        <button class="icon-btn" id="layer-dup-btn" title="Duplicate"><img src="images/icon-duplicate.svg?v=1.5.0" class="panel-icon" draggable="false"></button>
                     </div>
                 </div>
                 <div id="layer-opacity-row">
@@ -106,6 +107,6 @@
     </div>
 
     <div id="toast"></div>
-    <script src="dist/bundle.js"></script>
+    <script src="dist/bundle.js?v=1.5.0"></script>
 </body>
 </html>

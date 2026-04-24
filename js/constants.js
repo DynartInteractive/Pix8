@@ -1,3 +1,11 @@
+// Bump this on each release to force cache reload of CSS/JS/images in production.
+export const ASSET_VERSION = '1.5.0';
+
+// Appends ?v=ASSET_VERSION to an asset path for cache-busting.
+export function withVersion(path) {
+    return `${path}?v=${ASSET_VERSION}`;
+}
+
 // VGA Mode 13h default 256-color palette
 // First 16: CGA colors, then 216 color cube (6x6x6), then 24 grays
 export function generateVGAPalette() {

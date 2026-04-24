@@ -1,3 +1,5 @@
+import { withVersion } from '../constants.js';
+
 export class Toolbar {
     constructor(tools, bus, doc) {
         this.tools = tools;
@@ -80,7 +82,7 @@ export class Toolbar {
         btn.title = tool.name + (tool.shortcut ? ` (${tool.shortcut})` : '');
 
         const img = document.createElement('img');
-        img.src = tool.icon;
+        img.src = withVersion(tool.icon);
         img.className = 'tool-icon';
         img.draggable = false;
         btn.appendChild(img);
@@ -183,7 +185,7 @@ export class Toolbar {
         // Preserve the group indicator and shortcut hint, replace icon
         mainBtn.innerHTML = '';
         const img = document.createElement('img');
-        img.src = tool.icon;
+        img.src = withVersion(tool.icon);
         img.className = 'tool-icon';
         img.draggable = false;
         mainBtn.appendChild(img);
