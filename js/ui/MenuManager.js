@@ -373,7 +373,7 @@ export function _showAboutDialog() {
 
     dlg.body.appendChild(makeRow('Website:', 'https://pix8.app'));
     dlg.body.appendChild(makeRow('Repository:', 'https://github.com/DynartInteractive/Pix8'));
-    dlg.body.appendChild(makeRow('Developer:', 'https://github.com/goph-R'));
+    dlg.body.appendChild(makeRow('Developer:', 'https://dynart.net'));
 
     dlg.show(dlg.getButton(0));
 }

@@ -160,6 +160,7 @@ export class BaseSelector extends BaseTool {
             this.canvasView.clearOverlay();
             // _computeResizeBounds returns inclusive; preview methods expect exclusive end
             this._drawResizePreview(x0, y0, x1 + 1, y1 + 1);
+            this.bus.emit('selection-preview-size', { w: Math.max(0, x1 - x0 + 1), h: Math.max(0, y1 - y0 + 1) });
             return;
         }
 
@@ -193,6 +194,10 @@ export class BaseSelector extends BaseTool {
             ({ x, y } = this._constrainSquare(this._startX, this._startY, x, y));
         }
         this._drawDragPreview(this._startX, this._startY, x, y);
+        this.bus.emit('selection-preview-size', {
+            w: Math.abs(x - this._startX),
+            h: Math.abs(y - this._startY),
+        });
     }
 
     onPointerUp(x, y, e) {
@@ -246,6 +251,8 @@ export class BaseSelector extends BaseTool {
         }
 
         this._finishSelection(x0, y0, x, y);
+        // Re-sync status bar in case _finishSelection early-returned (drag too small)
+        this.bus.emit('selection-changed');
     }
 
     /** Convert drag coordinates to selection bounds and apply. Override for shape-specific bounds. */

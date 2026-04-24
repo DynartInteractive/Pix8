@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- **Help menu** — new Help menu with "About Pix8..." item showing version, short project description, and links to website, GitHub repository, and developer profile
+- **Selection size readout** — status bar shows `W: w H: h` of the active selection's axis-aligned bounding box; updates live while drawing a new selection, moving it, and dragging the resize handles
+
+### Changed
+- **Asset cache-busting** — `ASSET_VERSION` constant in `js/constants.js` and matching `?v=1.5.0` query strings on all CSS/JS/image references force browsers to re-download assets on new releases; bumping the version in three spots (`package.json`, `ASSET_VERSION`, `index.html`) is now part of the release process (see README)
+- Site domain updated to https://pix8.app (README, About dialog, deploy script)
+
 ## [1.5.0] - 2026-04-10
 
 ### Added

@@ -184,6 +184,15 @@ class App {
         });
         this.bus.on('document-changed', () => this.canvasView.render());
 
+        // Live size readout while dragging a resize handle (mask is still the
+        // pre-drag selection, so getBounds() would lie — use the preview size).
+        this.bus.on('selection-preview-size', ({ w, h }) => {
+            const el = document.getElementById('status-selsize');
+            if (!el) return;
+            el.textContent = `W: ${w} H: ${h}`;
+            el.style.display = '';
+        });
+
         // Selection events
         this.bus.on('selection-changed', () => {
             const sel = this.doc.selection;
@@ -194,6 +203,7 @@ class App {
             } else {
                 this.canvasView.stopMarchingAnts();
             }
+            this._updateSelectionStatus();
             this.canvasView.render();
         });
 
@@ -256,6 +266,21 @@ class App {
         return tab;
     }
 
+    _updateSelectionStatus() {
+        const el = document.getElementById('status-selsize');
+        if (!el) return;
+        const bounds = this.doc.selection.active ? this.doc.selection.getBounds() : null;
+        if (bounds) {
+            const w = bounds.maxX - bounds.minX + 1;
+            const h = bounds.maxY - bounds.minY + 1;
+            el.textContent = `W: ${w} H: ${h}`;
+            el.style.display = '';
+        } else {
+            el.textContent = '';
+            el.style.display = 'none';
+        }
+    }
+
     _saveTabState() {
         const tab = this._tabs.find(t => t.id === this._activeTabId);
         if (!tab) return;
@@ -289,6 +314,7 @@ class App {
 
         document.getElementById('status-size').textContent = `${tab.doc.width} x ${tab.doc.height}`;
         document.getElementById('status-zoom').textContent = `${tab.zoom * 100}%`;
+        this._updateSelectionStatus();
 
         // Frame panel visibility
         if (tab.doc.animationEnabled) {
