@@ -585,6 +585,28 @@ export function _applyExpandShrink(direction, amount) {
     this.bus.emit('selection-changed');
 }
 
+export function _invertSelection() {
+    const sel = this.doc.selection;
+    if (!sel.active) {
+        this._showToast('No selection');
+        return;
+    }
+    if (sel.hasFloating()) {
+        this.undoManager.beginOperation();
+        sel.commitFloating(this.doc.getActiveLayer());
+        this.undoManager.endOperation();
+    }
+    let anySelected = false;
+    for (let i = 0; i < sel.mask.length; i++) {
+        sel.mask[i] = sel.mask[i] ? 0 : 1;
+        if (sel.mask[i]) anySelected = true;
+    }
+    sel._pureShape = null;
+    sel._resizeSource = null;
+    sel.active = anySelected;
+    this.bus.emit('selection-changed');
+}
+
 export function _selectByAlpha() {
     const layer = this.doc.getActiveLayer();
     const sel = this.doc.selection;

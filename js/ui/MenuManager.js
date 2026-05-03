@@ -185,6 +185,7 @@ export function _showSelectionMenu() {
             sel.clear();
             this.bus.emit('selection-changed');
         }},
+        { label: 'Invert', action: () => this._invertSelection() },
         '-',
         { label: 'Expand...', disabled: !hasSel, action: () => this._expandShrinkSelection(1) },
         { label: 'Shrink...', disabled: !hasSel, action: () => this._expandShrinkSelection(-1) },

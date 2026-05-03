@@ -1,6 +1,10 @@
 # Changelog
 
-## [Unreleased]
+## [1.6.0] - 2026-05-03
+
+### Added
+- **Arrow-key nudge for Move tool** — when the Move tool is active, pressing an arrow key shifts the selected layer(s) or floating selection by 1 px; if a non-floating selection is active, the pixels are lifted first (matching the mouse-drag behavior). A burst of presses coalesces into a single undo step (500 ms idle commits the bracket); switching tools, switching tabs, or starting a pointer operation also flushes it
+- **Selection > Invert** — flips every bit in the selection mask (commits any floating selection first); shows a "No selection" toast when there's nothing to invert
 
 ### Fixed
 - **FG/BG swap button** — clicking the swap button between the color swatches no longer also opens the palette picker for FG; the swap button's click event was bubbling up to the parent swatch area and triggering the palette-picker click handler right after swapping

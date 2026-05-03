@@ -284,6 +284,7 @@ class App {
     _saveTabState() {
         const tab = this._tabs.find(t => t.id === this._activeTabId);
         if (!tab) return;
+        this._endNudge();
         tab.doc = this.doc;
         tab.undoStack = this.undoManager.undoStack;
         tab.redoStack = this.undoManager.redoStack;
@@ -487,6 +488,7 @@ class App {
 
     _finishToolSwitch(tool) {
         const ft = this._freeTransformTool;
+        this._endNudge();
         this.canvasView.activeTool = tool;
         document.getElementById('status-tool').textContent = tool.name;
         document.getElementById('status-hint').textContent = this._getToolHint(tool.name);
@@ -521,6 +523,7 @@ class App {
         cv._onPointerDown = (e) => {
             const isFreeTransform = cv._activeTool && cv._activeTool.isTransformActive;
             if (e.button === 0 && !cv._spaceDown && cv._activeTool && !isFreeTransform) {
+                this._endNudge();
                 this.undoManager.beginOperation();
             }
             origDown.call(cv, e);

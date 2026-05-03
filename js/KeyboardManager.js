@@ -28,6 +28,26 @@ export function _setupKeyboardShortcuts(tools) {
         if (aeTag === 'INPUT' || aeTag === 'TEXTAREA' || aeTag === 'SELECT') return;
         if (e.target.closest('.palette-dialog-overlay')) return;
 
+        // Arrow keys nudge layer/selection by 1px when Move tool is active.
+        // Any other key flushes the pending nudge undo bracket so it doesn't
+        // bleed into the next operation's snapshot.
+        const isArrow = e.key === 'ArrowUp' || e.key === 'ArrowDown' ||
+                        e.key === 'ArrowLeft' || e.key === 'ArrowRight';
+        if (isArrow && !e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) {
+            const tool = this.canvasView._activeTool;
+            if (tool && tool.name === 'Move') {
+                e.preventDefault();
+                let dx = 0, dy = 0;
+                if (e.key === 'ArrowLeft') dx = -1;
+                else if (e.key === 'ArrowRight') dx = 1;
+                else if (e.key === 'ArrowUp') dy = -1;
+                else if (e.key === 'ArrowDown') dy = 1;
+                this._nudgeMove(dx, dy);
+                return;
+            }
+        }
+        if (!isArrow) this._endNudge();
+
         // Tool shortcuts
         if (!e.ctrlKey && !e.altKey && !e.metaKey) {
             if (e.shiftKey) {
@@ -257,6 +277,54 @@ export function _setupKeyboardShortcuts(tools) {
             return;
         }
     });
+}
+
+export function _nudgeMove(dx, dy) {
+    const sel = this.doc.selection;
+    const layer = this.doc.getActiveLayer();
+    if (!layer) return;
+
+    if (!this._nudgeActive) {
+        this.undoManager.beginOperation();
+        this._nudgeActive = true;
+    }
+    if (this._nudgeTimer) clearTimeout(this._nudgeTimer);
+    this._nudgeTimer = setTimeout(() => this._endNudge(), 500);
+
+    if (sel.active && this.doc.selectedLayerIndices.size < 2) {
+        if (!sel.hasFloating()) {
+            sel.liftPixels(layer);
+            this.bus.emit('selection-changed');
+        }
+        if (sel.floating) {
+            sel.moveFloating(sel.floating.originX + dx, sel.floating.originY + dy);
+            this.canvasView.invalidateSelectionEdges();
+            this.canvasView.render();
+        }
+        return;
+    }
+
+    let moved = false;
+    for (const idx of this.doc.selectedLayerIndices) {
+        const l = this.doc.layers[idx];
+        if (l && !l.locked) {
+            l.offsetX += dx;
+            l.offsetY += dy;
+            moved = true;
+        }
+    }
+    if (moved) this.bus.emit('layer-changed');
+}
+
+export function _endNudge() {
+    if (this._nudgeTimer) {
+        clearTimeout(this._nudgeTimer);
+        this._nudgeTimer = null;
+    }
+    if (this._nudgeActive) {
+        this.undoManager.endOperation();
+        this._nudgeActive = false;
+    }
 }
 
 export function _zoomStep(dir) {
