@@ -41,6 +41,7 @@ No download needed to just try it — [pix8.app](https://pix8.app) runs the same
 - **Clipboard** -- Cut, Copy, Copy Merged, Paste, Paste in Place; automatic palette color remapping between documents; system clipboard paste with dithering
 - **Truecolor image import** -- File > Open supports PNG/JPG/GIF/WebP with median-cut quantization and dithering (None/Floyd-Steinberg/Ordered Bayer)
 - **Frame animation** -- sprite-sheet animation with per-frame pixel data; frame timeline with thumbnails, tag groups, play/pause/stop, tag-based playback; GIF and SPX export also available for still (non-animated) images
+- **Linked cels** -- share one image between frames per layer (Aseprite-style): editing any linked frame updates them all, and a linked frame costs no extra space in the `.pix8` file. Shift+click the timeline to select a range, then Link/Unlink; the bar under the thumbnails shows runs for the **active layer**
 - **Onion skinning** -- red-tinted previous frames, blue-tinted next frames; configurable opacity; extended mode (+-2 frames)
 - **GrafX2-style palette editor** -- range selection, HSV color picker (saturation/value square + hue strip), RGB sliders with hex input, batch operations (Swap, X-Swap, Copy, Flip, X-Flip, Neg, Gray, Spread, Merge, Sort, Reduce, Zap Unused, Used highlight), 6-bit VGA mode, palette Load/Save (PAL/BMP/PCX)
 
@@ -152,6 +153,7 @@ Then `npm run build` and deploy. The new query strings give browsers fresh URLs,
 | 1 | Reset brush to default (1px) |
 | +/- | Zoom in/out |
 | Space | Play Tag / Stop (animation) |
+| , / . | Previous / next frame (animation) |
 | Middle mouse drag | Pan canvas |
 | Enter | Commit free transform |
 | Escape | Cancel / deselect / commit floating selection |

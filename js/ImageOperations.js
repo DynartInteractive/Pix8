@@ -61,41 +61,39 @@ export function _rotateImage(clockwise) {
     doc.width = oldH;
     doc.height = oldW;
 
-    // Apply same rotation to all animation frames
+    // Apply the same rotation to every cel. Iterating the cel table rather than
+    // the frames matters: a cel linked across N frames must rotate once, not N times.
     if (doc.animationEnabled) {
         doc.saveCurrentFrame();
-        for (const frame of doc.frames) {
-            if (!frame.layerData) continue;
-            for (const ld of frame.layerData) {
-                const { width: lw, height: lh, data, offsetX, offsetY } = ld;
-                const newLW = lh;
-                const newLH = lw;
-                const newData = new Uint16Array(newLW * newLH);
-                newData.fill(TRANSPARENT);
-                for (let row = 0; row < lh; row++) {
-                    for (let col = 0; col < lw; col++) {
-                        const px = data[row * lw + col];
-                        let newCol, newRow;
-                        if (clockwise) {
-                            newCol = lh - 1 - row;
-                            newRow = col;
-                        } else {
-                            newCol = row;
-                            newRow = lw - 1 - col;
-                        }
-                        newData[newRow * newLW + newCol] = px;
+        for (const ld of doc.cels.values()) {
+            const { width: lw, height: lh, data, offsetX, offsetY } = ld;
+            const newLW = lh;
+            const newLH = lw;
+            const newData = new Uint16Array(newLW * newLH);
+            newData.fill(TRANSPARENT);
+            for (let row = 0; row < lh; row++) {
+                for (let col = 0; col < lw; col++) {
+                    const px = data[row * lw + col];
+                    let newCol, newRow;
+                    if (clockwise) {
+                        newCol = lh - 1 - row;
+                        newRow = col;
+                    } else {
+                        newCol = row;
+                        newRow = lw - 1 - col;
                     }
+                    newData[newRow * newLW + newCol] = px;
                 }
-                ld.data = newData;
-                ld.width = newLW;
-                ld.height = newLH;
-                if (clockwise) {
-                    ld.offsetX = oldH - 1 - (offsetY + lh - 1);
-                    ld.offsetY = offsetX;
-                } else {
-                    ld.offsetX = offsetY;
-                    ld.offsetY = oldW - 1 - (offsetX + lw - 1);
-                }
+            }
+            ld.data = newData;
+            ld.width = newLW;
+            ld.height = newLH;
+            if (clockwise) {
+                ld.offsetX = oldH - 1 - (offsetY + lh - 1);
+                ld.offsetY = offsetX;
+            } else {
+                ld.offsetX = offsetY;
+                ld.offsetY = oldW - 1 - (offsetX + lw - 1);
             }
         }
         doc.loadFrame(doc.activeFrameIndex);
@@ -274,39 +272,36 @@ export function _applyResize(newW, newH, resizeContent, anchor = 'nw') {
         }
     }
 
-    // Apply same resize to all animation frames
+    // Apply the same resize to every cel — once per cel, not once per reference.
     if (doc.animationEnabled) {
         doc.saveCurrentFrame();
-        for (const frame of doc.frames) {
-            if (!frame.layerData) continue;
-            for (const ld of frame.layerData) {
-                if (resizeContent) {
-                    const sx = newW / oldW;
-                    const sy = newH / oldH;
-                    const newLayerW = Math.max(1, Math.round(ld.width * sx));
-                    const newLayerH = Math.max(1, Math.round(ld.height * sy));
-                    const newData = new Uint16Array(newLayerW * newLayerH);
-                    newData.fill(TRANSPARENT);
-                    for (let y = 0; y < newLayerH; y++) {
-                        for (let x = 0; x < newLayerW; x++) {
-                            const srcX = Math.floor(x / sx);
-                            const srcY = Math.floor(y / sy);
-                            if (srcX < ld.width && srcY < ld.height) {
-                                newData[y * newLayerW + x] = ld.data[srcY * ld.width + srcX];
-                            }
+        for (const ld of doc.cels.values()) {
+            if (resizeContent) {
+                const sx = newW / oldW;
+                const sy = newH / oldH;
+                const newLayerW = Math.max(1, Math.round(ld.width * sx));
+                const newLayerH = Math.max(1, Math.round(ld.height * sy));
+                const newData = new Uint16Array(newLayerW * newLayerH);
+                newData.fill(TRANSPARENT);
+                for (let y = 0; y < newLayerH; y++) {
+                    for (let x = 0; x < newLayerW; x++) {
+                        const srcX = Math.floor(x / sx);
+                        const srcY = Math.floor(y / sy);
+                        if (srcX < ld.width && srcY < ld.height) {
+                            newData[y * newLayerW + x] = ld.data[srcY * ld.width + srcX];
                         }
                     }
-                    ld.data = newData;
-                    ld.width = newLayerW;
-                    ld.height = newLayerH;
-                    ld.offsetX = Math.round(ld.offsetX * sx);
-                    ld.offsetY = Math.round(ld.offsetY * sy);
-                } else {
-                    const dx = anchor.includes('w') ? 0 : anchor.includes('e') ? newW - oldW : Math.round((newW - oldW) / 2);
-                    const dy = anchor.includes('n') ? 0 : anchor.includes('s') ? newH - oldH : Math.round((newH - oldH) / 2);
-                    ld.offsetX += dx;
-                    ld.offsetY += dy;
                 }
+                ld.data = newData;
+                ld.width = newLayerW;
+                ld.height = newLayerH;
+                ld.offsetX = Math.round(ld.offsetX * sx);
+                ld.offsetY = Math.round(ld.offsetY * sy);
+            } else {
+                const dx = anchor.includes('w') ? 0 : anchor.includes('e') ? newW - oldW : Math.round((newW - oldW) / 2);
+                const dy = anchor.includes('n') ? 0 : anchor.includes('s') ? newH - oldH : Math.round((newH - oldH) / 2);
+                ld.offsetX += dx;
+                ld.offsetY += dy;
             }
         }
         doc.loadFrame(doc.activeFrameIndex);
@@ -427,10 +422,7 @@ export function _mergeSelectedLayers() {
     const beforeLayers = doc.layers.map(l => l.clone(true));
     const beforeActiveIndex = doc.activeLayerIndex;
     const beforeSelected = new Set(sel);
-    const beforeFrames = doc.animationEnabled ? doc.frames.map(f => ({
-        ...f,
-        layerData: f.layerData ? f.layerData.map(ld => ({ ...ld, data: ld.data.slice() })) : null,
-    })) : null;
+    const beforeAnim = doc.snapshotAnimation();
 
     const indices = [...sel].sort((a, b) => a - b);
 
@@ -460,13 +452,29 @@ export function _mergeSelectedLayers() {
     const liveEntries = indices.filter(i => doc.layers[i].visible).map(i => doc.layers[i]);
     merged.data = compositeLayers(liveEntries);
 
-    // For animation: composite per-frame before removing layers
-    let perFrameMerged = null;
+    // For animation: composite per-frame before removing layers. Frames whose
+    // source cels are all the same (i.e. were linked) produce an identical
+    // merge, so they share one merged cel and stay linked afterwards.
+    const visibleIndices = indices.filter(i => doc.layers[i].visible);
+    let perFrameMergedCel = null;
     if (doc.animationEnabled) {
-        perFrameMerged = doc.frames.map(frame => {
-            if (!frame.layerData) return null;
-            const entries = indices.filter(i => doc.layers[i].visible).map(i => frame.layerData[i]);
-            return compositeLayers(entries);
+        const bySourceIds = new Map();
+        perFrameMergedCel = doc.frames.map(frame => {
+            if (!frame.celIds) return null;
+            const key = visibleIndices.map(i => frame.celIds[i]).join(',');
+            if (bySourceIds.has(key)) return bySourceIds.get(key);
+            const entries = visibleIndices.map(i => doc.cels.get(frame.celIds[i]));
+            const celId = doc._createCel({
+                data: compositeLayers(entries),
+                opacity: 1.0,
+                textData: null,
+                offsetX: 0,
+                offsetY: 0,
+                width: doc.width,
+                height: doc.height,
+            });
+            bySourceIds.set(key, celId);
+            return celId;
         });
     }
 
@@ -476,7 +484,7 @@ export function _mergeSelectedLayers() {
         doc.layers.splice(indices[i], 1);
         if (doc.animationEnabled) {
             for (const frame of doc.frames) {
-                if (frame.layerData) frame.layerData.splice(indices[i], 1);
+                if (frame.celIds) frame.celIds.splice(indices[i], 1);
             }
         }
     }
@@ -484,18 +492,9 @@ export function _mergeSelectedLayers() {
     if (doc.animationEnabled) {
         for (let fi = 0; fi < doc.frames.length; fi++) {
             const frame = doc.frames[fi];
-            if (frame.layerData) {
-                frame.layerData.splice(lowestIdx, 0, {
-                    data: perFrameMerged[fi] || new Uint16Array(doc.width * doc.height).fill(TRANSPARENT),
-                    opacity: 1.0,
-                    textData: null,
-                    offsetX: 0,
-                    offsetY: 0,
-                    width: doc.width,
-                    height: doc.height,
-                });
-            }
+            if (frame.celIds) frame.celIds.splice(lowestIdx, 0, perFrameMergedCel[fi]);
         }
+        doc._gcCels();
         doc.saveCurrentFrame();
     }
     doc.activeLayerIndex = lowestIdx;
@@ -504,10 +503,7 @@ export function _mergeSelectedLayers() {
 
     // Snapshot after state and push undo entry
     const afterLayers = doc.layers.map(l => l.clone(true));
-    const afterFrames = doc.animationEnabled ? doc.frames.map(f => ({
-        ...f,
-        layerData: f.layerData ? f.layerData.map(ld => ({ ...ld, data: ld.data.slice() })) : null,
-    })) : null;
+    const afterAnim = doc.snapshotAnimation();
 
     this.undoManager.pushEntry({
         type: 'merge-layers',
@@ -517,8 +513,8 @@ export function _mergeSelectedLayers() {
         afterActiveIndex: lowestIdx,
         beforeSelected,
         afterSelected: new Set([lowestIdx]),
-        beforeFrames,
-        afterFrames,
+        beforeAnim,
+        afterAnim,
     });
 
     this.bus.emit('layer-changed');

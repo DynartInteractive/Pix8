@@ -127,6 +127,15 @@ export function _setupKeyboardShortcuts(tools) {
                 return;
             }
 
+            // , / . = previous / next frame (wraps)
+            if (e.key === ',' || e.key === '.') {
+                if (this.doc.animationEnabled) {
+                    e.preventDefault();
+                    this.framePanel.stepFrame(e.key === ',' ? -1 : 1);
+                }
+                return;
+            }
+
             // 1 = reset brush to default
             if (e.key === '1') {
                 this.doc.activeBrush = Brush.default();

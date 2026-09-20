@@ -590,6 +590,7 @@ export class CanvasView {
                 ctx.strokeStyle = style;
                 ctx.lineWidth = 1;
                 ctx.setLineDash([4, 4]);
+                ctx.lineDashOffset = 0; // don't inherit the marching-ants offset
                 ctx.strokeRect(lx + 0.5, ly + 0.5, lw - 1, lh - 1);
                 ctx.setLineDash([]);
             };
@@ -755,6 +756,7 @@ export class CanvasView {
             ctx.stroke();
         }
         ctx.setLineDash([]);
+        ctx.lineDashOffset = 0;
 
         // Draw resize handles if active tool supports them
         if (this._activeTool && this._activeTool.showsResizeHandles) {

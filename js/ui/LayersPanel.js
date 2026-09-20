@@ -73,13 +73,7 @@ export class LayersPanel {
         return {
             activeIndex: this.doc.activeLayerIndex,
             selected: new Set(this.doc.selectedLayerIndices),
-            frames: this.doc.animationEnabled ? this.doc.frames.map(f => ({
-                ...f,
-                layerData: f.layerData ? f.layerData.map(ld => ({
-                    ...ld,
-                    data: ld.data.slice(),
-                })) : null,
-            })) : null,
+            anim: this.doc.snapshotAnimation(),
         };
     }
 
@@ -302,8 +296,8 @@ export class LayersPanel {
             afterActiveIndex: after.activeIndex,
             beforeSelected: before.selected,
             afterSelected: after.selected,
-            beforeFrames: before.frames,
-            afterFrames: after.frames,
+            beforeAnim: before.anim,
+            afterAnim: after.anim,
         });
         this.bus.emit('layer-changed');
     }
@@ -324,8 +318,8 @@ export class LayersPanel {
                 afterActiveIndex: after.activeIndex,
                 beforeSelected: before.selected,
                 afterSelected: after.selected,
-                beforeFrames: before.frames,
-                afterFrames: after.frames,
+                beforeAnim: before.anim,
+                afterAnim: after.anim,
             });
             this.bus.emit('layer-changed');
         }
@@ -366,8 +360,8 @@ export class LayersPanel {
             afterActiveIndex: after.activeIndex,
             beforeSelected: before.selected,
             afterSelected: after.selected,
-            beforeFrames: before.frames,
-            afterFrames: after.frames,
+            beforeAnim: before.anim,
+            afterAnim: after.anim,
         });
         this.bus.emit('layer-changed');
     }

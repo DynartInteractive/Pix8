@@ -192,7 +192,7 @@ export class Renderer {
 
         for (const { index, step, dir } of onionFrames) {
             const frame = frames[index];
-            if (!frame.layerData) continue;
+            if (!frame.celIds) continue;
 
             // Opacity decreases with distance
             const opacity = baseOpacity / step;

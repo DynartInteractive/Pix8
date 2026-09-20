@@ -34,18 +34,23 @@ export function savePix8(doc) {
         onionSkinning: doc.onionSkinning,
         onionOpacity: doc.onionOpacity,
         onionExtended: doc.onionExtended,
+        // Frames reference cels by id; the cel table is written once, so cels
+        // linked across several frames cost one copy on disk, not one per frame.
         frames: doc.animationEnabled ? doc.frames.map(f => ({
             tag: f.tag,
             delay: f.delay,
-            layerData: f.layerData.map(ld => ({
-                opacity: ld.opacity,
-                textData: ld.textData,
-                offsetX: ld.offsetX,
-                offsetY: ld.offsetY,
-                width: ld.width,
-                height: ld.height,
-            })),
+            celIds: f.celIds.slice(),
         })) : [],
+        cels: doc.animationEnabled ? [...doc.cels].map(([id, cel]) => ({
+            id,
+            opacity: cel.opacity,
+            textData: cel.textData,
+            offsetX: cel.offsetX,
+            offsetY: cel.offsetY,
+            width: cel.width,
+            height: cel.height,
+        })) : [],
+        nextCelId: doc._nextCelId,
         activeFrameIndex: doc.activeFrameIndex,
     };
 
@@ -60,10 +65,8 @@ export function savePix8(doc) {
 
     let totalFrameBytes = 0;
     if (doc.animationEnabled) {
-        for (const frame of doc.frames) {
-            for (const ld of frame.layerData) {
-                totalFrameBytes += ld.data.length * 2;
-            }
+        for (const cel of doc.cels.values()) {
+            totalFrameBytes += cel.data.length * 2;
         }
     }
 
@@ -82,14 +85,12 @@ export function savePix8(doc) {
         offset += layer.width * layer.height * 2;
     }
 
-    // Write frame pixel data
+    // Write cel pixel data, in the same order as meta.cels
     if (doc.animationEnabled) {
-        for (const frame of doc.frames) {
-            for (const ld of frame.layerData) {
-                const u8View = new Uint8Array(ld.data.buffer, ld.data.byteOffset, ld.data.byteLength);
-                bytes.set(u8View, offset);
-                offset += ld.data.length * 2;
-            }
+        for (const cel of doc.cels.values()) {
+            const u8View = new Uint8Array(cel.data.buffer, cel.data.byteOffset, cel.data.byteLength);
+            bytes.set(u8View, offset);
+            offset += cel.data.length * 2;
         }
     }
 
@@ -144,31 +145,36 @@ export function loadPix8(arrayBuffer) {
         doc.onionOpacity = meta.onionOpacity ?? 50;
         doc.onionExtended = !!meta.onionExtended;
         doc.activeFrameIndex = meta.activeFrameIndex || 0;
-        doc.frames = meta.frames.map(frameMeta => {
-            const frame = {
-                tag: frameMeta.tag || '',
-                delay: frameMeta.delay || 100,
-                layerData: frameMeta.layerData.map((ldMeta, li) => {
-                    const lw = ldMeta.width ?? meta.layers[li]?.width ?? meta.width;
-                    const lh = ldMeta.height ?? meta.layers[li]?.height ?? meta.height;
-                    const pixelCount = lw * lh;
-                    const data = new Uint16Array(pixelCount);
-                    const u8View = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
-                    u8View.set(bytes.slice(offset, offset + pixelCount * 2));
-                    offset += pixelCount * 2;
-                    return {
-                        data,
-                        opacity: ldMeta.opacity ?? 1,
-                        textData: ldMeta.textData || null,
-                        offsetX: ldMeta.offsetX ?? 0,
-                        offsetY: ldMeta.offsetY ?? 0,
-                        width: lw,
-                        height: lh,
-                    };
-                }),
-            };
-            return frame;
-        });
+
+        // Cel table, read in the same order it was written
+        doc.cels = new Map();
+        let maxCelId = 0;
+        for (const celMeta of (meta.cels || [])) {
+            const lw = celMeta.width ?? meta.width;
+            const lh = celMeta.height ?? meta.height;
+            const pixelCount = lw * lh;
+            const data = new Uint16Array(pixelCount);
+            const u8View = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+            u8View.set(bytes.slice(offset, offset + pixelCount * 2));
+            offset += pixelCount * 2;
+            doc.cels.set(celMeta.id, {
+                data,
+                opacity: celMeta.opacity ?? 1,
+                textData: celMeta.textData || null,
+                offsetX: celMeta.offsetX ?? 0,
+                offsetY: celMeta.offsetY ?? 0,
+                width: lw,
+                height: lh,
+            });
+            if (celMeta.id > maxCelId) maxCelId = celMeta.id;
+        }
+        doc._nextCelId = meta.nextCelId ?? maxCelId + 1;
+
+        doc.frames = meta.frames.map(frameMeta => ({
+            tag: frameMeta.tag || '',
+            delay: frameMeta.delay || 100,
+            celIds: (frameMeta.celIds || []).slice(),
+        }));
         // Load the active frame into layers
         if (doc.frames[doc.activeFrameIndex]) {
             doc._restoreLayersFromFrame(doc.frames[doc.activeFrameIndex]);

@@ -18,12 +18,17 @@ export function exportGIF(doc, options = {}) {
     // Find a palette index to use as transparent color.
     // Scan all frames' layer data to find an unused index; fall back to 255.
     const usedIndices = new Uint8Array(256);
+    const scanned = new Set();
     for (const fi of frameIndices) {
         const frame = frames[fi];
-        if (!frame || !frame.layerData) continue;
-        for (const ld of frame.layerData) {
-            for (let i = 0; i < ld.data.length; i++) {
-                const v = ld.data[i];
+        if (!frame || !frame.celIds) continue;
+        for (const celId of frame.celIds) {
+            if (scanned.has(celId)) continue; // linked cel — scan it once
+            scanned.add(celId);
+            const cel = doc.cels.get(celId);
+            if (!cel) continue;
+            for (let i = 0; i < cel.data.length; i++) {
+                const v = cel.data[i];
                 if (v !== TRANSPARENT && v < 256) usedIndices[v] = 1;
             }
         }

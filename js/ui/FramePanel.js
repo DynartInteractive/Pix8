@@ -15,6 +15,9 @@ export class FramePanel {
         this._playMode = null; // 'all' or 'tag'
         this._playFrameIndices = null; // indices to loop through
         this._playTimer = null;
+        // Frame range selection, used by Link/Unlink. Always contains the active frame.
+        this._selected = new Set([0]);
+        this._selAnchor = 0;
 
         this._buildUI();
 
@@ -22,18 +25,15 @@ export class FramePanel {
         this.bus.on('document-changed', () => this._updateAllThumbs());
         this.bus.on('frame-changed', () => this.render());
         this.bus.on('animation-changed', () => this.render());
+        // Links are shown for the active layer only, so switching layers
+        // changes which runs are drawn.
+        this.bus.on('active-layer-changed', () => this.render());
     }
 
     _snapshotFrames() {
         return {
             activeFrameIndex: this.doc.activeFrameIndex,
-            frames: this.doc.frames.map(f => ({
-                ...f,
-                layerData: f.layerData ? f.layerData.map(ld => ({
-                    ...ld,
-                    data: ld.data.slice(),
-                })) : null,
-            })),
+            anim: this.doc.snapshotAnimation(),
         };
     }
 
@@ -56,20 +56,24 @@ export class FramePanel {
             return b;
         };
 
-        btn('images/icon-add.svg', 'Add frame', () => {
+        const addFrame = (linked) => {
             const before = this._snapshotFrames();
-            this.doc.addFrame();
+            this.doc.addFrame(linked);
             const after = this._snapshotFrames();
             this.undoManager.pushEntry({
                 type: 'frame-add',
-                beforeFrames: before.frames,
-                afterFrames: after.frames,
+                beforeAnim: before.anim,
+                afterAnim: after.anim,
                 beforeActiveFrame: before.activeFrameIndex,
                 afterActiveFrame: after.activeFrameIndex,
             });
+            this._selectOnly(this.doc.activeFrameIndex);
             this.bus.emit('frame-changed');
             this.bus.emit('animation-changed');
-        });
+        };
+
+        btn('images/icon-add.svg', 'Add frame (copy)', () => addFrame(false));
+        btn('images/icon-add-linked.svg', 'Add linked frame (shares this frame’s cels)', () => addFrame(true));
         btn('images/icon-delete.svg', 'Delete frame', () => {
             if (this.doc.frames.length <= 1) return;
             if (!confirm('Delete this frame?')) return;
@@ -78,11 +82,12 @@ export class FramePanel {
             const after = this._snapshotFrames();
             this.undoManager.pushEntry({
                 type: 'frame-delete',
-                beforeFrames: before.frames,
-                afterFrames: after.frames,
+                beforeAnim: before.anim,
+                afterAnim: after.anim,
                 beforeActiveFrame: before.activeFrameIndex,
                 afterActiveFrame: after.activeFrameIndex,
             });
+            this._selectOnly(this.doc.activeFrameIndex);
             this.bus.emit('frame-changed');
             this.bus.emit('animation-changed');
             this.bus.emit('layer-changed');
@@ -112,6 +117,51 @@ export class FramePanel {
                 this.bus.emit('frame-changed');
                 this.bus.emit('animation-changed');
             }
+        });
+
+        const sepLink = document.createElement('span');
+        sepLink.style.cssText = 'width:1px;height:16px;background:var(--border);margin:0 4px;';
+        header.appendChild(sepLink);
+
+        // Link ops act on the ACTIVE LAYER across the selected frames — a cel is
+        // (layer × frame), so there is no such thing as linking a whole frame.
+        this._linkBtn = btn('images/icon-link.svg', 'Link cels (active layer, selected frames)', () => {
+            const li = this.doc.activeLayerIndex;
+            const targets = [...this._selected].filter(i => i !== this.doc.activeFrameIndex);
+            if (targets.length === 0) return;
+            const n = targets.length;
+            if (!confirm(`Link the active layer across ${n + 1} frames?\n\nThe other ${n} frame${n > 1 ? 's' : ''} will share this frame's image — their current content on this layer is discarded.`)) return;
+            const before = this._snapshotFrames();
+            if (!this.doc.linkCels(li, targets, this.doc.activeFrameIndex)) return;
+            const after = this._snapshotFrames();
+            this.undoManager.pushEntry({
+                type: 'frame-link',
+                beforeAnim: before.anim,
+                afterAnim: after.anim,
+                beforeActiveFrame: before.activeFrameIndex,
+                afterActiveFrame: after.activeFrameIndex,
+            });
+            this.bus.emit('frame-changed');
+            this.bus.emit('layer-changed');
+        });
+        this._unlinkBtn = btn('images/icon-unlink.svg', 'Unlink cels (active layer, selected frames)', () => {
+            const li = this.doc.activeLayerIndex;
+            const before = this._snapshotFrames();
+            let changed = false;
+            for (const fi of this._selected) {
+                if (this.doc.unlinkCel(fi, li)) changed = true;
+            }
+            if (!changed) return;
+            const after = this._snapshotFrames();
+            this.undoManager.pushEntry({
+                type: 'frame-link',
+                beforeAnim: before.anim,
+                afterAnim: after.anim,
+                beforeActiveFrame: before.activeFrameIndex,
+                afterActiveFrame: after.activeFrameIndex,
+            });
+            this.bus.emit('frame-changed');
+            this.bus.emit('layer-changed');
         });
 
         const sep = document.createElement('span');
@@ -194,10 +244,46 @@ export class FramePanel {
         this.panel.classList.remove('visible');
     }
 
+    _selectOnly(index) {
+        this._selected = new Set([index]);
+        this._selAnchor = index;
+    }
+
+    /** Frames sharing the active layer's cel with `i`, as neighbour flags. */
+    _linkNeighbours(i) {
+        const frames = this.doc.frames;
+        const li = this.doc.activeLayerIndex;
+        const id = frames[i].celIds?.[li];
+        if (id === undefined) return { prev: false, next: false };
+        return {
+            prev: i > 0 && frames[i - 1].celIds?.[li] === id,
+            next: i < frames.length - 1 && frames[i + 1].celIds?.[li] === id,
+        };
+    }
+
+    _updateLinkButtons() {
+        const li = this.doc.activeLayerIndex;
+        const doc = this.doc;
+        this._linkBtn.disabled = this._selected.size < 2;
+        let anyLinked = false;
+        for (const fi of this._selected) {
+            if (doc.isCelLinked(fi, li)) { anyLinked = true; break; }
+        }
+        this._unlinkBtn.disabled = !anyLinked;
+    }
+
     render() {
+        // Flush live layers into their cels first: a linked cel edited on the
+        // active frame must show up in its siblings' thumbnails too.
+        this.doc.saveCurrentFrame();
         this._list.innerHTML = '';
         const frames = this.doc.frames;
         const activeIdx = this.doc.activeFrameIndex;
+        this._renderedLayerIndex = this.doc.activeLayerIndex;
+
+        // Drop selection entries left dangling by a delete/undo
+        this._selected = new Set([...this._selected].filter(i => i < frames.length));
+        this._selected.add(activeIdx);
 
         // Determine which tag group the active frame belongs to
         let activeTag = null;
@@ -209,7 +295,9 @@ export class FramePanel {
             const frame = frames[i];
 
             const thumb = document.createElement('div');
-            thumb.className = 'frame-thumb' + (i === activeIdx ? ' active' : '');
+            thumb.className = 'frame-thumb'
+                + (i === activeIdx ? ' active' : '')
+                + (this._selected.has(i) && i !== activeIdx ? ' selected' : '');
 
             // Tag label above the frame (only on tag-start frames)
             if (frame.tag) {
@@ -238,8 +326,34 @@ export class FramePanel {
             label.textContent = `${i + 1}`;
             thumb.appendChild(label);
 
-            thumb.addEventListener('click', () => {
+            // Link run for the ACTIVE LAYER only. The bar bridges the 4px gap
+            // between thumbs so a run reads as one continuous span.
+            const { prev, next } = this._linkNeighbours(i);
+            if (prev || next) {
+                const bar = document.createElement('div');
+                bar.className = 'frame-link-bar';
+                if (prev) bar.style.left = '-4px';
+                if (next) bar.style.right = '-4px';
+                bar.title = 'Linked cel — shared with adjacent frames on this layer';
+                thumb.appendChild(bar);
+            }
+
+            thumb.addEventListener('click', (e) => {
                 if (this._playing) return;
+                if (e.shiftKey) {
+                    // Extend the range from the anchor; don't treat as a double-click
+                    this._lastClickTime = 0;
+                    const lo = Math.min(this._selAnchor, i);
+                    const hi = Math.max(this._selAnchor, i);
+                    this._selected = new Set();
+                    for (let k = lo; k <= hi; k++) this._selected.add(k);
+                    // _switchFrame re-renders via 'frame-changed'; only render
+                    // here when it short-circuits on an unchanged index.
+                    const sameFrame = i === this.doc.activeFrameIndex;
+                    this._switchFrame(i);
+                    if (sameFrame) this.render();
+                    return;
+                }
                 const now = Date.now();
                 if (now - this._lastClickTime < 400 && this._lastClickIndex === i) {
                     this._lastClickTime = 0;
@@ -248,11 +362,16 @@ export class FramePanel {
                 }
                 this._lastClickTime = now;
                 this._lastClickIndex = i;
+                this._selectOnly(i);
+                const sameFrame = i === this.doc.activeFrameIndex;
                 this._switchFrame(i);
+                if (sameFrame) this.render();
             });
 
             this._list.appendChild(thumb);
         }
+
+        this._updateLinkButtons();
     }
 
     _renderThumb(canvas, frame, frameIndex) {
@@ -265,7 +384,7 @@ export class FramePanel {
         const isActive = frameIndex === doc.activeFrameIndex;
 
         // For active frame, render current state; for others, temporarily swap
-        if (!isActive && frame.layerData) {
+        if (!isActive && frame.celIds) {
             // Save current layer state
             const saved = doc.layers.map(l => ({
                 data: l.data, opacity: l.opacity, textData: l.textData,
@@ -306,6 +425,15 @@ export class FramePanel {
 
     _updateAllThumbs() {
         if (!this.doc.animationEnabled || !this.panel.classList.contains('visible')) return;
+        // Link runs are drawn for the active layer, but 'active-layer-changed'
+        // only fires on a layer-row click — add/delete/undo move the active
+        // layer silently. Comparing against what we last drew catches them all.
+        if (this._renderedLayerIndex !== this.doc.activeLayerIndex) {
+            this.render();
+            return;
+        }
+        // Push the in-progress edit into its cel so frames linked to it repaint too
+        this.doc.saveCurrentFrame();
         const thumbs = this._list.querySelectorAll('.frame-thumb');
         const frames = this.doc.frames;
         for (let i = 0; i < thumbs.length && i < frames.length; i++) {
@@ -321,6 +449,19 @@ export class FramePanel {
         this.bus.emit('frame-changed');
         this.bus.emit('layer-changed');
         this.bus.emit('document-changed');
+    }
+
+    /** Step to the previous (-1) or next (+1) frame, wrapping around. */
+    stepFrame(dir) {
+        const n = this.doc.frames.length;
+        if (n <= 1) return;
+        if (this._playing) this._pause();
+        const target = (this.doc.activeFrameIndex + dir + n) % n;
+        this._selectOnly(target);
+        this._switchFrame(target);
+        // render() rebuilt the list synchronously via 'frame-changed'
+        const active = this._list.querySelector('.frame-thumb.active');
+        if (active) active.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     }
 
     _editFrame(index, frame) {

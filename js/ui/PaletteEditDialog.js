@@ -53,10 +53,7 @@ export class PaletteEditDialog {
         this._originalPalette = this.doc.palette.export();
         if (this.doc.animationEnabled) this.doc.saveCurrentFrame();
         this._originalLayers = this.doc.layers.map(l => l.clone(true));
-        this._originalFrames = this.doc.animationEnabled ? this.doc.frames.map(f => ({
-            ...f,
-            layerData: f.layerData ? f.layerData.map(ld => ({ ...ld, data: ld.data.slice() })) : null,
-        })) : null;
+        this._originalAnim = this.doc.snapshotAnimation();
         this._buildDOM();
         document.body.appendChild(this._overlay);
     }
@@ -1299,10 +1296,7 @@ export class PaletteEditDialog {
         this._paletteHistory.push({
             palette: this.doc.palette.export(),
             layers: this.doc.layers.map(l => l.clone(true)),
-            frames: this.doc.animationEnabled ? this.doc.frames.map(f => ({
-                ...f,
-                layerData: f.layerData ? f.layerData.map(ld => ({ ...ld, data: ld.data.slice() })) : null,
-            })) : null,
+            anim: this.doc.snapshotAnimation(),
         });
         if (this._undoBtn) this._undoBtn.disabled = false;
     }
@@ -1312,11 +1306,8 @@ export class PaletteEditDialog {
         const prev = this._paletteHistory.pop();
         this.doc.palette.import(prev.palette);
         this.doc.layers = prev.layers;
-        if (prev.frames) {
-            this.doc.frames = prev.frames.map(f => ({
-                ...f,
-                layerData: f.layerData ? f.layerData.map(ld => ({ ...ld, data: ld.data.slice() })) : null,
-            }));
+        if (prev.anim) {
+            this.doc.restoreAnimation(prev.anim);
             this.doc.loadFrame(this.doc.activeFrameIndex);
         }
         this.updateSwatches();
@@ -1376,10 +1367,7 @@ export class PaletteEditDialog {
         if (this.doc.animationEnabled) this.doc.saveCurrentFrame();
         const afterPalette = this.doc.palette.export();
         const afterLayers = this.doc.layers.map(l => l.clone(true));
-        const afterFrames = this.doc.animationEnabled ? this.doc.frames.map(f => ({
-            ...f,
-            layerData: f.layerData ? f.layerData.map(ld => ({ ...ld, data: ld.data.slice() })) : null,
-        })) : null;
+        const afterAnim = this.doc.snapshotAnimation();
         // Check if anything actually changed
         let changed = false;
         for (let i = 0; i < 256; i++) {
@@ -1404,8 +1392,8 @@ export class PaletteEditDialog {
                 afterPalette: afterPalette,
                 beforeLayers: this._originalLayers,
                 afterLayers: afterLayers,
-                beforeFrames: this._originalFrames,
-                afterFrames: afterFrames,
+                beforeAnim: this._originalAnim,
+                afterAnim: afterAnim,
             });
             this.undoManager.redoStack = [];
         }
@@ -1415,11 +1403,8 @@ export class PaletteEditDialog {
     _cancel() {
         this.doc.palette.import(this._originalPalette);
         this.doc.layers = this._originalLayers;
-        if (this._originalFrames) {
-            this.doc.frames = this._originalFrames.map(f => ({
-                ...f,
-                layerData: f.layerData ? f.layerData.map(ld => ({ ...ld, data: ld.data.slice() })) : null,
-            }));
+        if (this._originalAnim) {
+            this.doc.restoreAnimation(this._originalAnim);
             this.doc.loadFrame(this.doc.activeFrameIndex);
         }
         this.bus.emit('palette-changed');

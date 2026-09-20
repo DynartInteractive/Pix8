@@ -5,48 +5,66 @@ export class UndoManager {
         this.maxEntries = maxEntries;
         this.undoStack = [];
         this.redoStack = [];
-        this._snapshot = null;
-        this._snapshotGeometry = null;
-        this._snapshotLayer = -1;
+        this._snapshots = null;
         this._selectionSnapshot = null;
     }
 
     /** Call before a tool operation begins (on pointer down). */
     beginOperation() {
-        const idx = this.doc.activeLayerIndex;
-        const layer = this.doc.layers[idx];
-        this._snapshotLayer = idx;
-        this._snapshot = layer.snapshotData();
-        this._snapshotGeometry = layer.snapshotGeometry();
+        // Snapshot every layer the operation may touch: the active one plus any
+        // additionally selected layers (Move and nudge act on all of them).
+        const indices = new Set(this.doc.selectedLayerIndices);
+        indices.add(this.doc.activeLayerIndex);
+        this._snapshots = [];
+        for (const idx of indices) {
+            const layer = this.doc.layers[idx];
+            if (!layer) continue;
+            this._snapshots.push({
+                index: idx,
+                data: layer.snapshotData(),
+                geometry: layer.snapshotGeometry(),
+            });
+        }
         this._selectionSnapshot = this.doc.selection.snapshot();
+    }
+
+    _layerChanged(before, afterData, afterGeometry) {
+        const bg = before.geometry;
+        if (bg.width !== afterGeometry.width || bg.height !== afterGeometry.height ||
+            bg.offsetX !== afterGeometry.offsetX || bg.offsetY !== afterGeometry.offsetY) {
+            return true;
+        }
+        const afterArr = afterData.data || afterData;
+        const beforeArr = before.data.data || before.data;
+        if (afterArr.length !== beforeArr.length) return true;
+        for (let i = 0; i < afterArr.length; i++) {
+            if (afterArr[i] !== beforeArr[i]) return true;
+        }
+        return false;
     }
 
     /** Call after a tool operation ends (on pointer up). */
     endOperation() {
-        if (this._snapshot === null) return;
+        if (this._snapshots === null) return;
 
-        const idx = this._snapshotLayer;
-        const layer = this.doc.layers[idx];
-        const afterData = layer.snapshotData();
-        const afterGeometry = layer.snapshotGeometry();
-        const afterSelection = this.doc.selection.snapshot();
-
-        // Check if layer changed (data or geometry)
-        let layerChanged = false;
-        const bg = this._snapshotGeometry;
-        if (bg.width !== afterGeometry.width || bg.height !== afterGeometry.height ||
-            bg.offsetX !== afterGeometry.offsetX || bg.offsetY !== afterGeometry.offsetY) {
-            layerChanged = true;
-        } else {
-            const afterArr = afterData.data || afterData;
-            const beforeArr = this._snapshot.data || this._snapshot;
-            for (let i = 0; i < afterArr.length; i++) {
-                if (afterArr[i] !== beforeArr[i]) {
-                    layerChanged = true;
-                    break;
-                }
+        const changed = [];
+        for (const before of this._snapshots) {
+            const layer = this.doc.layers[before.index];
+            if (!layer) continue;
+            const afterData = layer.snapshotData();
+            const afterGeometry = layer.snapshotGeometry();
+            if (this._layerChanged(before, afterData, afterGeometry)) {
+                changed.push({
+                    layerIndex: before.index,
+                    beforeData: before.data,
+                    afterData: afterData,
+                    beforeGeometry: before.geometry,
+                    afterGeometry: afterGeometry,
+                });
             }
         }
+
+        const afterSelection = this.doc.selection.snapshot();
 
         // Check if selection changed
         let selectionChanged = false;
@@ -73,13 +91,9 @@ export class UndoManager {
             }
         }
 
-        if (layerChanged || selectionChanged) {
+        if (changed.length > 0 || selectionChanged) {
             this.undoStack.push({
-                layerIndex: idx,
-                beforeData: this._snapshot,
-                afterData: afterData,
-                beforeGeometry: this._snapshotGeometry,
-                afterGeometry: afterGeometry,
+                layers: changed,
                 beforeSelection: this._selectionSnapshot,
                 afterSelection: afterSelection,
             });
@@ -91,9 +105,7 @@ export class UndoManager {
             this.redoStack = [];
         }
 
-        this._snapshot = null;
-        this._snapshotGeometry = null;
-        this._snapshotLayer = -1;
+        this._snapshots = null;
         this._selectionSnapshot = null;
     }
 
@@ -108,8 +120,18 @@ export class UndoManager {
     _restoreLayerState(entry, side) {
         this.doc.activeLayerIndex = entry[side + 'ActiveIndex'];
         this.doc.selectedLayerIndices = new Set(entry[side + 'Selected']);
-        if (entry[side + 'Frames']) {
-            this.doc.frames = entry[side + 'Frames'];
+        if (entry[side + 'Anim']) {
+            this.doc.restoreAnimation(entry[side + 'Anim']);
+        }
+    }
+
+    /** Restore the 'before'/'after' side of a generic (tool) undo entry. */
+    _restoreLayers(entry, side) {
+        for (const rec of entry.layers) {
+            const layer = this.doc.layers[rec.layerIndex];
+            if (layer) {
+                layer.restoreSnapshot(rec[side + 'Data'], rec[side + 'Geometry']);
+            }
         }
     }
 
@@ -136,11 +158,8 @@ export class UndoManager {
         if (entry.type === 'palette') {
             this.doc.palette.import(entry.beforePalette);
             this.doc.layers = entry.beforeLayers;
-            if (entry.beforeFrames) {
-                this.doc.frames = entry.beforeFrames.map(f => ({
-                    ...f,
-                    layerData: f.layerData ? f.layerData.map(ld => ({ ...ld, data: ld.data.slice() })) : null,
-                }));
+            if (entry.beforeAnim) {
+                this.doc.restoreAnimation(entry.beforeAnim);
                 this.doc.loadFrame(this.doc.activeFrameIndex);
             }
             this.redoStack.push(entry);
@@ -164,11 +183,8 @@ export class UndoManager {
             this.doc.layers = entry.beforeLayers.map(l => l.clone(true));
             this.doc.activeLayerIndex = entry.beforeActiveIndex;
             this.doc.selectedLayerIndices = new Set(entry.beforeSelected);
-            if (entry.beforeFrames) {
-                this.doc.frames = entry.beforeFrames.map(f => ({
-                    ...f,
-                    layerData: f.layerData ? f.layerData.map(ld => ({ ...ld, data: ld.data.slice() })) : null,
-                }));
+            if (entry.beforeAnim) {
+                this.doc.restoreAnimation(entry.beforeAnim);
                 this.doc.loadFrame(this.doc.activeFrameIndex);
             }
             this.redoStack.push(entry);
@@ -231,11 +247,8 @@ export class UndoManager {
             return;
         }
 
-        if (entry.type === 'frame-add' || entry.type === 'frame-delete') {
-            this.doc.frames = entry.beforeFrames.map(f => ({
-                ...f,
-                layerData: f.layerData ? f.layerData.map(ld => ({ ...ld, data: ld.data.slice() })) : null,
-            }));
+        if (entry.type === 'frame-add' || entry.type === 'frame-delete' || entry.type === 'frame-link') {
+            this.doc.restoreAnimation(entry.beforeAnim);
             this.doc.activeFrameIndex = entry.beforeActiveFrame;
             this.doc.loadFrame(this.doc.activeFrameIndex);
             this.redoStack.push(entry);
@@ -266,15 +279,12 @@ export class UndoManager {
             return;
         }
 
-        const layer = this.doc.layers[entry.layerIndex];
-        if (layer) {
-            layer.restoreSnapshot(entry.beforeData, entry.beforeGeometry);
-            this.doc.selection.restoreSnapshot(entry.beforeSelection);
-            this.redoStack.push(entry);
-            this.bus.emit('selection-changed');
-            this.bus.emit('layer-changed');
-            this.bus.emit('document-changed');
-        }
+        this._restoreLayers(entry, 'before');
+        this.doc.selection.restoreSnapshot(entry.beforeSelection);
+        this.redoStack.push(entry);
+        this.bus.emit('selection-changed');
+        this.bus.emit('layer-changed');
+        this.bus.emit('document-changed');
     }
 
     redo() {
@@ -284,11 +294,8 @@ export class UndoManager {
         if (entry.type === 'palette') {
             this.doc.palette.import(entry.afterPalette);
             this.doc.layers = entry.afterLayers;
-            if (entry.afterFrames) {
-                this.doc.frames = entry.afterFrames.map(f => ({
-                    ...f,
-                    layerData: f.layerData ? f.layerData.map(ld => ({ ...ld, data: ld.data.slice() })) : null,
-                }));
+            if (entry.afterAnim) {
+                this.doc.restoreAnimation(entry.afterAnim);
                 this.doc.loadFrame(this.doc.activeFrameIndex);
             }
             this.undoStack.push(entry);
@@ -312,11 +319,8 @@ export class UndoManager {
             this.doc.layers = entry.afterLayers.map(l => l.clone(true));
             this.doc.activeLayerIndex = entry.afterActiveIndex;
             this.doc.selectedLayerIndices = new Set(entry.afterSelected);
-            if (entry.afterFrames) {
-                this.doc.frames = entry.afterFrames.map(f => ({
-                    ...f,
-                    layerData: f.layerData ? f.layerData.map(ld => ({ ...ld, data: ld.data.slice() })) : null,
-                }));
+            if (entry.afterAnim) {
+                this.doc.restoreAnimation(entry.afterAnim);
                 this.doc.loadFrame(this.doc.activeFrameIndex);
             }
             this.undoStack.push(entry);
@@ -379,11 +383,8 @@ export class UndoManager {
             return;
         }
 
-        if (entry.type === 'frame-add' || entry.type === 'frame-delete') {
-            this.doc.frames = entry.afterFrames.map(f => ({
-                ...f,
-                layerData: f.layerData ? f.layerData.map(ld => ({ ...ld, data: ld.data.slice() })) : null,
-            }));
+        if (entry.type === 'frame-add' || entry.type === 'frame-delete' || entry.type === 'frame-link') {
+            this.doc.restoreAnimation(entry.afterAnim);
             this.doc.activeFrameIndex = entry.afterActiveFrame;
             this.doc.loadFrame(this.doc.activeFrameIndex);
             this.undoStack.push(entry);
@@ -414,14 +415,11 @@ export class UndoManager {
             return;
         }
 
-        const layer = this.doc.layers[entry.layerIndex];
-        if (layer) {
-            layer.restoreSnapshot(entry.afterData, entry.afterGeometry);
-            this.doc.selection.restoreSnapshot(entry.afterSelection);
-            this.undoStack.push(entry);
-            this.bus.emit('selection-changed');
-            this.bus.emit('layer-changed');
-            this.bus.emit('document-changed');
-        }
+        this._restoreLayers(entry, 'after');
+        this.doc.selection.restoreSnapshot(entry.afterSelection);
+        this.undoStack.push(entry);
+        this.bus.emit('selection-changed');
+        this.bus.emit('layer-changed');
+        this.bus.emit('document-changed');
     }
 }

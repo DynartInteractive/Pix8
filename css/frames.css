@@ -90,3 +90,25 @@
     z-index: 2;
     color: var(--text-bright, #fff);
 }
+
+/* Frames picked for a Link/Unlink range (the active frame keeps its own border) */
+.frame-thumb.selected {
+    border-color: var(--text-dim);
+    background: var(--bg-secondary, var(--bg-input));
+}
+
+/*
+ * Linked-cel run indicator for the ACTIVE LAYER. Sits below the thumbnail and
+ * extends 4px past the padding box on any side that continues, so it bridges
+ * the .frame-list gap and a run reads as one bar.
+ */
+.frame-link-bar {
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--accent);
+    border-radius: 2px;
+    pointer-events: none;
+}

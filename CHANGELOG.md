@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.7.0] - 2026-09-20
+
+### Added
+- **Linked cels (Aseprite-style).** A cel is one layer's image on one frame, and two frames can now share the same cel: edit any one of them and every linked frame updates. Shift+click the frame timeline to select a range, then use **Link** / **Unlink** in the frame panel toolbar. Link operations act on the **active layer** across the selected frames — a cel is (layer x frame), so there is no such thing as linking a whole frame. A bar under the thumbnails shows link runs, again for the active layer only, so switching layers changes what you see. **Add linked frame** sits next to **Add frame** and creates a frame sharing every cel of the current one. Unlinking clones the cel, so the frame keeps its pixels and stops following its siblings. Link/Unlink are undoable.
+- **`,` and `.` step to the previous / next frame** when animation is enabled.
+
+### Changed
+- **Animated `.pix8` files now store a cel table plus per-frame cel-id lists**, instead of a full copy of every layer on every frame. Linked frames cost no extra bytes, and even unlinked files get smaller.
+
+### Fixed
+- **Undo after moving multiple layers restores all of them.** Move (and arrow-key nudge) act on every layer in the multi-layer selection, but undo only ever snapshotted the active layer — so undoing a multi-layer move left the other layers displaced, with no way to put them back. Tool undo entries now carry a before/after record per layer.
+- **Layer borders no longer march.** With *Show Border* (or *Show All Borders*) on and a selection active, the dashed layer outlines animated along with the selection's marching ants. The ants left their animated `lineDashOffset` on the shared overlay context, and the borders — drawn first on the next frame — inherited it.
+
+### Breaking
+- **Animated `.pix8` files written before 1.7.0 will not open.** The frame layout changed with linked cels and there is no reader for the old one. Non-animated `.pix8` files are unaffected and open normally. This landed in a minor version rather than 2.0.0 because no animated `.pix8` files existed in the wild, and 2.0.0 is reserved for 24-bit truecolor support.
+
 ## [1.6.6] - 2026-07-31
 
 ### Fixed

@@ -670,25 +670,22 @@ export function _showExportDialog() {
 }
 
 export function _ensureSingleFrame() {
-    this.doc.animationEnabled = true;
-    this.doc.activeFrameIndex = 0;
-    this.doc.frames = [{
+    const doc = this.doc;
+    doc.animationEnabled = true;
+    doc.activeFrameIndex = 0;
+    doc.cels = new Map();
+    doc._nextCelId = 1;
+    doc.frames = [{
         tag: '',
         delay: 100,
-        layerData: this.doc.layers.map(l => ({
-            data: l.data.slice(),
-            opacity: l.opacity,
-            textData: l.textData ? { ...l.textData } : null,
-            offsetX: l.offsetX,
-            offsetY: l.offsetY,
-            width: l.width,
-            height: l.height,
-        })),
+        celIds: doc.layers.map(l => doc._createCel(doc._celFromLayer(l))),
     }];
 }
 
 export function _clearTempFrame() {
     this.doc.animationEnabled = false;
     this.doc.frames = [];
+    this.doc.cels = new Map();
+    this.doc._nextCelId = 1;
     this.doc.activeFrameIndex = 0;
 }
