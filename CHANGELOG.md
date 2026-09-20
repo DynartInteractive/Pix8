@@ -7,7 +7,7 @@
 - **`,` and `.` step to the previous / next frame** when animation is enabled.
 
 ### Changed
-- **Animated `.pix8` files now store a cel table plus per-frame cel-id lists**, instead of a full copy of every layer on every frame. Linked frames cost no extra bytes, and even unlinked files get smaller.
+- **Animated `.pix8` files now store a cel table plus per-frame cel-id lists**, instead of a full copy of every layer on every frame, so a linked frame costs a few bytes rather than a second copy of the image. Files with nothing linked are unchanged in size.
 
 ### Fixed
 - **Undo after moving multiple layers restores all of them.** Move (and arrow-key nudge) act on every layer in the multi-layer selection, but undo only ever snapshotted the active layer — so undoing a multi-layer move left the other layers displaced, with no way to put them back. Tool undo entries now carry a before/after record per layer.
