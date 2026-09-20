@@ -1,14 +1,18 @@
-# Pix8
+<p align="center">
+  <img src="images/icon-app-256.png" width="128" height="128" alt="Pix8 icon">
+</p>
 
-A browser-based 256-color indexed pixel art editor inspired by VGA-era graphics tools. Built with vanilla JavaScript and webpack.
+<h1 align="center">Pix8</h1>
 
-Try it online: https://pix8.app
+<p align="center">A browser-based 256-color indexed pixel art editor inspired by VGA-era graphics tools. Built with vanilla JavaScript and webpack.</p>
+
+<p align="center">Try it online: <a href="https://pix8.app">pix8.app</a></p>
 
 ![Pix8 Screenshot](screenshot-v1.4.0.png)
 
 ## ⬇️ Download
 
-**Windows** — [**Installer** (`Pix8.Setup.1.6.6.exe`)](https://github.com/DynartInteractive/Pix8/releases/download/v1.6.6/Pix8.Setup.1.6.6.exe) · [**Portable** (`Pix8.1.6.6.exe`)](https://github.com/DynartInteractive/Pix8/releases/download/v1.6.6/Pix8.1.6.6.exe)
+**Windows** — [**Installer** (`Pix8.Setup.1.7.0.exe`)](https://github.com/DynartInteractive/Pix8/releases/download/v1.7.0/Pix8.Setup.1.7.0.exe) · [**Portable** (`Pix8.1.7.0.exe`)](https://github.com/DynartInteractive/Pix8/releases/download/v1.7.0/Pix8.1.7.0.exe)
 
 The installer lets you pick the install directory and adds a desktop shortcut; the portable is a single self-extracting file — run it, no install. Both are **unsigned** for now, so SmartScreen warns on first run (*More info → Run anyway*).
 
