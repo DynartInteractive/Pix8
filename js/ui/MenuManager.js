@@ -1,4 +1,4 @@
-import { ZOOM_LEVELS, ASSET_VERSION } from '../constants.js';
+import { ZOOM_LEVELS, ASSET_VERSION, withVersion } from '../constants.js';
 import { Brush } from '../model/Brush.js';
 import { ROW_STYLE } from './dialogHelpers.js';
 import Dialog from './Dialog.js';
@@ -352,6 +352,18 @@ export function _showAboutDialog() {
     });
 
     dlg.body.style.cssText = 'display:flex;flex-direction:column;gap:10px;padding:12px 4px;font-size:13px;color:var(--text);line-height:1.5;';
+
+    const icon = document.createElement('img');
+    icon.src = withVersion('images/icon-app-256.png');
+    icon.alt = '';
+    icon.draggable = false;
+    // The source is 256px of hard-edged pixel art, shown at exactly half that:
+    // an integer ratio lands on pixel boundaries, and 'pixelated' keeps the
+    // browser from smoothing the blocks into mush on the way down.
+    icon.width = 128;
+    icon.height = 128;
+    icon.style.cssText = 'align-self:center;image-rendering:pixelated;image-rendering:crisp-edges;';
+    dlg.body.appendChild(icon);
 
     const title = document.createElement('div');
     title.style.cssText = 'font-size:16px;font-weight:bold;';
