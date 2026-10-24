@@ -638,32 +638,94 @@ class App {
         this.bus.emit('layer-changed');
     }
 
-    _pasteAsLayer(originX, originY) {
-        if (!this._clipboard) return;
-        const cb = this._clipboard;
-
-        // Remap palette indices if pasting from a different palette
+    // Clipboard pixels in this document's palette. A copy taken from another
+    // document carries its source palette, so each index is re-pointed at the
+    // nearest colour here before the pixels land anywhere.
+    _remapClipboardIndices(cb) {
         const data = new Uint16Array(cb.data);
-        if (cb.sourcePalette) {
-            const dstPalette = this.doc.palette.export();
-            const remap = new Uint16Array(256);
-            for (let i = 0; i < 256; i++) {
-                const [sr, sg, sb] = cb.sourcePalette[i];
-                let bestDist = Infinity, bestJ = 0;
-                for (let j = 0; j < 256; j++) {
-                    const [dr, dg, db] = dstPalette[j];
-                    const dist = (sr - dr) ** 2 + (sg - dg) ** 2 + (sb - db) ** 2;
-                    if (dist < bestDist) { bestDist = dist; bestJ = j; }
-                    if (dist === 0) break;
-                }
-                remap[i] = bestJ;
+        if (!cb.sourcePalette) return data;
+
+        const dstPalette = this.doc.palette.export();
+        const remap = new Uint16Array(256);
+        for (let i = 0; i < 256; i++) {
+            const [sr, sg, sb] = cb.sourcePalette[i];
+            let bestDist = Infinity, bestJ = 0;
+            for (let j = 0; j < 256; j++) {
+                const [dr, dg, db] = dstPalette[j];
+                const dist = (sr - dr) ** 2 + (sg - dg) ** 2 + (sb - db) ** 2;
+                if (dist < bestDist) { bestDist = dist; bestJ = j; }
+                if (dist === 0) break;
             }
-            for (let i = 0; i < data.length; i++) {
-                if (data[i] !== TRANSPARENT) {
-                    data[i] = remap[data[i]];
-                }
+            remap[i] = bestJ;
+        }
+        for (let i = 0; i < data.length; i++) {
+            if (data[i] !== TRANSPARENT) {
+                data[i] = remap[data[i]];
             }
         }
+        return data;
+    }
+
+    // Paste onto the active layer as a floating selection: the pixels sit above
+    // the layer, draggable with the Move tool, and are stamped down when the
+    // selection is committed (Deselect, Select All, a new selection...). This is
+    // what Ctrl+V does, matching GIMP and Aseprite. _pasteAsNewLayer below is
+    // the other behaviour, on Ctrl+Alt+V.
+    _pasteFloating(originX, originY) {
+        if (!this._clipboard) return;
+        const layer = this.doc.getActiveLayer();
+        if (!layer || layer.locked) {
+            this._showStatus('Layer is locked');
+            return;
+        }
+        const cb = this._clipboard;
+        const sel = this.doc.selection;
+
+        this.undoManager.beginOperation();
+
+        // Stamp down whatever was already floating, so pasting twice in a row
+        // keeps the first paste instead of dropping it on the floor.
+        if (sel.hasFloating()) sel.commitFloating(layer);
+
+        const data = this._remapClipboardIndices(cb);
+        sel.clear();
+        // The mask follows the clipboard's own mask rather than its bounding
+        // box, so something copied through an ellipse selection pastes with
+        // that outline instead of a rectangle.
+        for (let y = 0; y < cb.height; y++) {
+            for (let x = 0; x < cb.width; x++) {
+                if (!cb.mask[y * cb.width + x]) continue;
+                const docX = originX + x;
+                const docY = originY + y;
+                if (docX < 0 || docX >= sel.width || docY < 0 || docY >= sel.height) continue;
+                sel.mask[docY * sel.width + docX] = 1;
+            }
+        }
+        sel.active = true;
+        sel.floating = {
+            data,
+            mask: new Uint8Array(cb.mask),
+            width: cb.width,
+            height: cb.height,
+            originX,
+            originY,
+        };
+
+        this.undoManager.endOperation();
+
+        // Straight into the Move tool: the paste is only useful if it can be
+        // dragged, and drawing with a brush while something floats above the
+        // layer paints underneath it, which looks broken.
+        this.bus.emit('switch-tool', 'Move');
+        this.bus.emit('selection-changed');
+        this.bus.emit('layer-changed');
+        this._showStatus('Pasted - drag to move, Ctrl+D to drop it');
+    }
+
+    _pasteAsNewLayer(originX, originY) {
+        if (!this._clipboard) return;
+        const cb = this._clipboard;
+        const data = this._remapClipboardIndices(cb);
 
         // Save current frame before modifying layers
         const before = this._snapshotLayerMeta();
@@ -688,12 +750,20 @@ class App {
         const cb = this._clipboard;
         const ox = Math.round((this.doc.width - cb.width) / 2);
         const oy = Math.round((this.doc.height - cb.height) / 2);
-        this._pasteAsLayer(ox, oy);
+        this._pasteFloating(ox, oy);
     }
 
     _pasteInPlace() {
         if (!this._clipboard) return;
-        this._pasteAsLayer(this._clipboard.originX, this._clipboard.originY);
+        this._pasteFloating(this._clipboard.originX, this._clipboard.originY);
+    }
+
+    _pasteNewLayer() {
+        if (!this._clipboard) return;
+        const cb = this._clipboard;
+        const ox = Math.round((this.doc.width - cb.width) / 2);
+        const oy = Math.round((this.doc.height - cb.height) / 2);
+        this._pasteAsNewLayer(ox, oy);
     }
 
     async _pasteFromClipboard() {

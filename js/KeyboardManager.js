@@ -190,7 +190,7 @@ export function _setupKeyboardShortcuts(tools) {
         }
 
         // Ctrl+Shift+V = paste in place
-        if (e.ctrlKey && e.shiftKey && (e.key === 'V' || e.key === 'v')) {
+        if (e.ctrlKey && e.shiftKey && !e.altKey && (e.key === 'V' || e.key === 'v')) {
             e.preventDefault();
             this._pasteInPlace();
             return;
@@ -210,8 +210,16 @@ export function _setupKeyboardShortcuts(tools) {
             return;
         }
 
-        // Ctrl+V = paste
-        if (e.ctrlKey && !e.shiftKey && e.key === 'v') {
+        // Ctrl+Alt+V = paste as a new layer. Checked before plain Ctrl+V,
+        // whose test does not look at altKey.
+        if (e.ctrlKey && e.altKey && !e.shiftKey && (e.key === 'v' || e.key === 'V')) {
+            e.preventDefault();
+            this._pasteNewLayer();
+            return;
+        }
+
+        // Ctrl+V = paste onto the current layer as a floating selection
+        if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key === 'v') {
             e.preventDefault();
             if (this._clipboard) {
                 this._paste();

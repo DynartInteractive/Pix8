@@ -43,7 +43,7 @@ No download needed to just try it — [pix8.app](https://pix8.app) runs the same
 - **Free Transform** -- move, resize, and rotate selected pixels with interactive handles (T shortcut), Ctrl snaps rotation to 22.5-degree increments
 - **Text tool** -- create text layers with configurable font, size, bold/italic/underline, anti-aliased palette-mapped rendering, and palette color picker (W shortcut)
 - **Multi-document tabs** -- independent documents with separate layers, palette, undo history, and zoom/pan state
-- **Clipboard** -- Cut, Copy, Copy Merged, Paste, Paste in Place; copies are clipped to the source layer, so Select All on a small layer in a large document yields the layer, not the canvas; automatic palette color remapping between documents; system clipboard paste with dithering
+- **Clipboard** -- Cut, Copy, Copy Merged, Paste, Paste in Place, Paste as New Layer; Paste lands on the current layer as a floating selection you can drag with the Move tool and drop by deselecting; copies are clipped to the source layer, so Select All on a small layer in a large document yields the layer, not the canvas; automatic palette color remapping between documents; system clipboard paste with dithering
 - **Truecolor image import** -- File > Open supports PNG/JPG/GIF/WebP with median-cut quantization and dithering (None/Floyd-Steinberg/Ordered Bayer)
 - **Frame animation** -- sprite-sheet animation with per-frame pixel data; frame timeline with thumbnails, tag groups, play/pause/stop, tag-based playback; GIF and SPX export also available for still (non-animated) images
 - **Linked cels** -- share one image between frames per layer (Aseprite-style): editing any linked frame updates them all, and a linked frame costs no extra space in the `.pix8` file. Shift+click the timeline to select a range, then Link/Unlink; the bar under the thumbnails shows runs for the **active layer**
@@ -178,8 +178,9 @@ For screenshots, `css/main.css` carries a commented-out `max-width`/`max-height`
 | Ctrl+C | Copy |
 | Ctrl+Shift+C | Copy merged (all layers) |
 | Ctrl+X | Cut |
-| Ctrl+V | Paste (centered) |
-| Ctrl+Shift+V | Paste in place |
+| Ctrl+V | Paste onto the current layer as a floating selection (centered) |
+| Ctrl+Shift+V | Paste in place, as a floating selection |
+| Ctrl+Alt+V | Paste as a new layer |
 | Ctrl+Z | Undo |
 | Ctrl+Shift+Z | Redo |
 | Ctrl+S | Save project |

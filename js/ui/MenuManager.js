@@ -160,6 +160,7 @@ export function _showEditMenu() {
         { label: 'Copy Merged', shortcut: 'Ctrl+Shift+C', action: () => this._copyMerged() },
         { label: 'Paste', shortcut: 'Ctrl+V', action: () => this._clipboard ? this._paste() : this._pasteFromClipboard() },
         { label: 'Paste in Place', shortcut: 'Ctrl+Shift+V', action: () => this._pasteInPlace() },
+        { label: 'Paste as New Layer', shortcut: 'Ctrl+Alt+V', action: () => this._pasteNewLayer() },
         '-',
         { label: 'Clear', shortcut: 'Delete', action: () => this._clearSelection() },
         '-',
