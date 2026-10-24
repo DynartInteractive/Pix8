@@ -57,6 +57,13 @@ html, body {
         "toolbar statusbar statusbar";
     width: 100%;
     height: 100%;
+
+    /* Screenshot frame: uncomment to pin the whole UI to exactly 1280x720 on a
+       larger display, so README screenshots come out at a consistent size
+       whatever the browser window happens to be. The app anchors top-left, so
+       the shot is a straight crop from the corner. Off for normal use. */
+    /* max-width: 1280px; */
+    /* max-height: 720px; */
 }
 
 /* Menu bar */
