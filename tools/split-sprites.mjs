@@ -13,6 +13,8 @@
 //     --size=WxH        canvas size (default: the first frame's size)
 //     --size=max        canvas big enough for every frame
 //     --default-tag=X   tag for frames with no animation name (default: idle)
+//     --align=topleft   anchor undersized frames at the origin instead of
+//                       centring them
 //
 // Naming: <prefix>_<animation>_<n> becomes tag <animation>, frame n. Two
 // shapes besides that one appear in practice and are handled:
@@ -36,6 +38,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { loadPix8, savePix8 } from '../js/util/io.js';
 import { ImageDocument } from '../js/model/ImageDocument.js';
+import { TRANSPARENT } from '../js/constants.js';
 
 const FRAME_DELAY_MS = 100;
 const DEFAULT_TAG = 'idle';
@@ -44,6 +47,7 @@ function parseArgs(argv) {
     const positional = argv.filter(a => !a.startsWith('--'));
     const sizeArg = argv.find(a => a.startsWith('--size='));
     const tagArg = argv.find(a => a.startsWith('--default-tag='));
+    const alignArg = argv.find(a => a.startsWith('--align='));
     if (positional.length < 3) {
         console.error('usage: split-sprites.mjs <sheet.pix8> <prefix> <out.pix8> [--size=WxH|--size=max] [--default-tag=idle]');
         process.exit(2);
@@ -58,7 +62,12 @@ function parseArgs(argv) {
         width = Number(m[1]); height = Number(m[2]);
     }
     const defaultTag = tagArg ? tagArg.slice('--default-tag='.length) : DEFAULT_TAG;
-    return { sheet, prefix, out, width, height, maxSize, defaultTag };
+    const align = alignArg ? alignArg.slice('--align='.length) : 'center';
+    if (align !== 'center' && align !== 'topleft') {
+        console.error('bad --align, expected --align=center or --align=topleft');
+        process.exit(2);
+    }
+    return { sheet, prefix, out, width, height, maxSize, defaultTag, align };
 }
 
 // `player_run_2`  -> { animation: 'run',  index: 2 }
@@ -72,7 +81,7 @@ function parseName(name, prefix, defaultTag) {
              : { animation: rest, index: 1 };
 }
 
-const { sheet, prefix, out, width, height, maxSize, defaultTag } = parseArgs(process.argv.slice(2));
+const { sheet, prefix, out, width, height, maxSize, defaultTag, align } = parseArgs(process.argv.slice(2));
 
 const bytes = readFileSync(sheet);
 const src = loadPix8(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
@@ -111,6 +120,28 @@ if (width !== null) {
     docW = ordered[0].width; docH = ordered[0].height;
 }
 
+// Grow a frame smaller than the canvas to the canvas size, keeping its content
+// centred. A sprite drawn smaller than its siblings is normally smaller
+// *around a pivot* — a 16x16 rotating ball among 32x32 frames is the case this
+// exists for — so anchoring it at the origin would make it jump to the corner
+// when the animation reaches it. Frames larger than the canvas are left at
+// their own size; those are reported separately and want --size, not padding.
+function fitToCanvas(layer) {
+    const fits = layer.width <= docW && layer.height <= docH;
+    if (!fits || (layer.width === docW && layer.height === docH)) {
+        return { data: layer.data.slice(), width: layer.width, height: layer.height };
+    }
+    const dx = align === 'topleft' ? 0 : Math.floor((docW - layer.width) / 2);
+    const dy = align === 'topleft' ? 0 : Math.floor((docH - layer.height) / 2);
+    const data = new Uint16Array(docW * docH).fill(TRANSPARENT);
+    for (let y = 0; y < layer.height; y++) {
+        for (let x = 0; x < layer.width; x++) {
+            data[(dy + y) * docW + (dx + x)] = layer.data[y * layer.width + x];
+        }
+    }
+    return { data, width: docW, height: docH };
+}
+
 const doc = new ImageDocument(docW, docH);
 doc.palette.import(src.palette.export());
 doc.layers[0].name = prefix;
@@ -125,16 +156,17 @@ doc._nextCelId = 1;
 let total = 0;
 for (const [animation, frames] of groups) {
     frames.forEach(({ layer }, i) => {
+        const fitted = fitToCanvas(layer);
         const celId = doc._createCel({
-            data: layer.data.slice(),
+            data: fitted.data,
             opacity: layer.opacity,
             textData: null,
             // Dropped: the sheet's position only says where the sprite sat in
             // the sheet. Every frame starts at the document origin.
             offsetX: 0,
             offsetY: 0,
-            width: layer.width,
-            height: layer.height,
+            width: fitted.width,
+            height: fitted.height,
         });
         // Only the first frame of a run carries the tag — that is how Pix8
         // marks a group, and how FramePanel finds which group a frame is in.
@@ -152,7 +184,11 @@ console.log(`${sheet} -> ${out}`);
 console.log(`  ${docW}x${docH}, ${total} frames in ${groups.size} tags, 1 layer "${prefix}"`);
 for (const [animation, frames] of groups) {
     const sizes = [...new Set(frames.map(f => `${f.layer.width}x${f.layer.height}`))];
-    const odd = sizes.some(x => x !== `${docW}x${docH}`) ? `  <- ${sizes.join(',')}` : '';
+    const padded = frames.some(f => f.layer.width <= docW && f.layer.height <= docH
+        && (f.layer.width !== docW || f.layer.height !== docH));
+    const odd = sizes.some(x => x !== `${docW}x${docH}`)
+        ? `  <- ${sizes.join(',')}${padded ? ` (padded ${align})` : ''}`
+        : '';
     console.log(`    ${animation.padEnd(14)} ${String(frames.length).padStart(2)} frame(s)${odd}`);
 }
 
