@@ -276,6 +276,10 @@ export class FramePanel {
         // Flush live layers into their cels first: a linked cel edited on the
         // active frame must show up in its siblings' thumbnails too.
         this.doc.saveCurrentFrame();
+        // Same clamp-to-zero as the layers list, on the horizontal axis: wiping
+        // the thumbs collapses scrollWidth, so a scrubbed timeline snapped back
+        // to frame 1 on every frame-changed.
+        const scrollLeft = this._list.scrollLeft;
         this._list.innerHTML = '';
         const frames = this.doc.frames;
         const activeIdx = this.doc.activeFrameIndex;
@@ -371,7 +375,29 @@ export class FramePanel {
             this._list.appendChild(thumb);
         }
 
+        this._list.scrollLeft = scrollLeft;
+        this._scrollActiveIntoView();
         this._updateLinkButtons();
+    }
+
+    // Restoring the offset alone can leave the active frame off-screen — the
+    // playhead moves during playback and stepFrame(), and a tab switch arrives
+    // with a different activeFrameIndex. 'nearest' makes this a minimal nudge,
+    // so a hand-scrolled timeline showing the active frame is left alone.
+    _scrollActiveIntoView() {
+        const active = this._list.querySelector('.frame-thumb.active');
+        if (active) active.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
+
+    // The frame list is one DOM node shared by every tab, each with its own
+    // frames; app.js persists the offset per tab alongside zoom/pan.
+    getScrollLeft() {
+        return this._list.scrollLeft;
+    }
+
+    setScrollLeft(value) {
+        this._list.scrollLeft = value || 0;
+        this._scrollActiveIntoView();
     }
 
     _renderThumb(canvas, frame, frameIndex) {
@@ -459,9 +485,8 @@ export class FramePanel {
         const target = (this.doc.activeFrameIndex + dir + n) % n;
         this._selectOnly(target);
         this._switchFrame(target);
-        // render() rebuilt the list synchronously via 'frame-changed'
-        const active = this._list.querySelector('.frame-thumb.active');
-        if (active) active.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        // No scroll fix-up here: _switchFrame emitted 'frame-changed', and
+        // render() scrolls the active thumb into view itself now.
     }
 
     _editFrame(index, frame) {

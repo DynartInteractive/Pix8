@@ -1,5 +1,5 @@
 import { BaseTool } from './BaseTool.js';
-import { bresenhamLine, snapEndpoint } from '../util/math.js';
+import { bresenhamLine } from '../util/math.js';
 
 export class BrushTool extends BaseTool {
     constructor(doc, bus, canvasView) {
@@ -15,6 +15,12 @@ export class BrushTool extends BaseTool {
         this._color = undefined;
     }
 
+    // Shift held with no button down previews the line from the anchor.
+    onHover(x, y, e) {
+        if (this.previewLineFromAnchor(x, y, e)) return;
+        super.onHover(x, y, e);
+    }
+
     onPointerDown(x, y, e) {
         const layer = this.doc.getActiveLayer();
         if (layer.locked) return;
@@ -22,20 +28,25 @@ export class BrushTool extends BaseTool {
         this._lineMode = e.shiftKey;
         this._color = e.button === 2 ? this.doc.bgColorIndex : undefined;
         if (this._lineMode) {
-            this._startX = x;
-            this._startY = y;
+            // Continue from the last pixel drawn when there is one; only fall
+            // back to anchoring at the press point on a cold start.
+            if (this.hasLineAnchor()) {
+                this._startX = this._anchorX;
+                this._startY = this._anchorY;
+            } else {
+                this._startX = x;
+                this._startY = y;
+            }
         } else {
             this._lastX = x;
-            this._lastY = y;            
+            this._lastY = y;
             this.stampBrush(layer, x, y, this._color);
+            this.setLineAnchor(x, y);
         }
     }
 
     _snapEnd(x, y, e) {
-        if (e.ctrlKey) {
-            return snapEndpoint(this._startX, this._startY, x, y);
-        }
-        return { x, y };
+        return this.lineEndpoint(this._startX, this._startY, x, y, e);
     }
 
     onPointerMove(x, y, e) {
@@ -58,17 +69,21 @@ export class BrushTool extends BaseTool {
 
         this._lastX = x;
         this._lastY = y;
+        // The anchor trails the stroke, so releasing mid-drag leaves it on the
+        // last pixel actually painted.
+        this.setLineAnchor(x, y);
     }
 
     onPointerUp(x, y, e) {
         if (this._lineMode && this._startX !== null) {
-            if (this._startX === null) return;
             const end = this._snapEnd(x, y, e);
             const layer = this.doc.getActiveLayer();
             if (!layer.locked) {
                 bresenhamLine(this._startX, this._startY, end.x, end.y, (px, py) => {
                     this.stampBrush(layer, px, py, this._color);
                 });
+                // Chain: the end of this line anchors the next one.
+                this.setLineAnchor(end.x, end.y);
             }
             this.canvasView.clearOverlay();
         }

@@ -1,4 +1,5 @@
 import { TRANSPARENT } from '../constants.js';
+import { bresenhamLine, snapEndpoint } from '../util/math.js';
 
 export class BaseTool {
     constructor(doc, bus, canvasView) {
@@ -8,14 +9,61 @@ export class BaseTool {
         this.name = 'base';
         this.icon = '';
         this.shortcut = '';
+        // Last position this tool painted. Unlike a stroke's _lastX/_lastY it
+        // survives pointer-up — see the line-anchor block below.
+        this._anchorX = null;
+        this._anchorY = null;
     }
 
     onPointerDown(x, y, e) {}
     onPointerMove(x, y, e) {}
     onPointerUp(x, y, e) {}
 
-    onHover(x, y) {
+    onHover(x, y, e) {
         this.canvasView.drawBrushPreview(x, y);
+    }
+
+    // ── Shift line anchor ───────────────────────────────────────────
+    //
+    // GIMP-style: the anchor is wherever this tool last drew, and it outlives
+    // the stroke. So you can put a pixel down, release, *then* hold Shift and
+    // get a live line preview running from that pixel to the cursor; clicking
+    // commits it and moves the anchor to the new end point, ready to chain.
+    //
+    // With no anchor yet (first stroke after the tool was picked, or after a
+    // document switch) Shift keeps the older behaviour instead: the press point
+    // starts the line and the drag sets its end.
+
+    hasLineAnchor() {
+        return this._anchorX !== null;
+    }
+
+    setLineAnchor(x, y) {
+        this._anchorX = x;
+        this._anchorY = y;
+    }
+
+    clearLineAnchor() {
+        this._anchorX = null;
+        this._anchorY = null;
+    }
+
+    // Where a line from (x0,y0) should end, honouring Ctrl snap-to-22.5deg.
+    lineEndpoint(x0, y0, x, y, e) {
+        return (e && e.ctrlKey) ? snapEndpoint(x0, y0, x, y) : { x, y };
+    }
+
+    // Preview the pending line while Shift is held with no button down.
+    // Returns false when there's nothing to preview, so onHover can fall back
+    // to the plain brush dab.
+    previewLineFromAnchor(x, y, e) {
+        if (!e || !e.shiftKey || !this.hasLineAnchor()) return false;
+        const end = this.lineEndpoint(this._anchorX, this._anchorY, x, y, e);
+        this.canvasView.clearOverlay();
+        bresenhamLine(this._anchorX, this._anchorY, end.x, end.y, (px, py) => {
+            this.previewBrush(px, py);
+        });
+        return true;
     }
 
     getCursor() {

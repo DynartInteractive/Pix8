@@ -259,6 +259,8 @@ class App {
             zoom: this.canvasView.zoom,
             panX: this.canvasView.panX,
             panY: this.canvasView.panY,
+            layersScroll: 0,
+            framesScroll: 0,
         };
         this._tabs.push(tab);
         this._activeTabId = tab.id;
@@ -292,6 +294,8 @@ class App {
         tab.zoom = this.canvasView.zoom;
         tab.panX = this.canvasView.panX;
         tab.panY = this.canvasView.panY;
+        tab.layersScroll = this.layersPanel.getScrollTop();
+        tab.framesScroll = this.framePanel.getScrollLeft();
     }
 
     _loadTabState(tab) {
@@ -332,6 +336,14 @@ class App {
         this.bus.emit('layer-changed');
         this.bus.emit('document-changed');
         this.bus.emit('selection-changed');
+
+        // After the renders above, not before: each one carries the outgoing
+        // tab's scroll offset forward, and this tab's own offset wins.
+        this.layersPanel.setScrollTop(tab.layersScroll);
+        // Must follow framePanel.show() above — scrollLeft doesn't stick on a
+        // display:none element, so an animated tab restored while hidden would
+        // silently land back at frame 1.
+        if (tab.doc.animationEnabled) this.framePanel.setScrollLeft(tab.framesScroll);
     }
 
     _setDocOnComponents(doc) {
@@ -344,6 +356,9 @@ class App {
         this.framePanel.doc = doc;
         for (const tool of this._tools) {
             tool.doc = doc;
+            // The Shift line anchor is a point in the outgoing document's
+            // space; carrying it across would draw a line from nowhere.
+            if (tool.clearLineAnchor) tool.clearLineAnchor();
         }
     }
 
@@ -583,24 +598,26 @@ class App {
         const sel = this.doc.selection;
         if (!sel.active) return;
         const copied = sel.copyPixels(this.doc.getActiveLayer());
-        if (copied) {
-            if (copied.data.every(v => v === TRANSPARENT)) {
-                this._showStatus('No content to copy');
-                return;
-            }
-            copied.sourcePalette = this.doc.palette.export();
-            this._clipboard = copied;
+        // null now means the selection misses the active layer's rect entirely,
+        // which is a reachable case since the copy region is clipped to it.
+        if (!copied || copied.data.every(v => v === TRANSPARENT)) {
+            this._showStatus('No content to copy');
+            return;
         }
+        copied.sourcePalette = this.doc.palette.export();
+        this._clipboard = copied;
     }
 
     _copyMerged() {
         const sel = this.doc.selection;
         if (!sel.active) return;
         const copied = sel.copyPixelsMerged(this.doc.layers);
-        if (copied) {
-            copied.sourcePalette = this.doc.palette.export();
-            this._clipboard = copied;
+        if (!copied) {
+            this._showStatus('No content to copy');
+            return;
         }
+        copied.sourcePalette = this.doc.palette.export();
+        this._clipboard = copied;
     }
 
     _cut() {

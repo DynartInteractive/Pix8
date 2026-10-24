@@ -1,6 +1,6 @@
 import { BaseTool } from './BaseTool.js';
 import { TRANSPARENT } from '../constants.js';
-import { bresenhamLine, snapEndpoint } from '../util/math.js';
+import { bresenhamLine } from '../util/math.js';
 
 export class EraserTool extends BaseTool {
     constructor(doc, bus, canvasView) {
@@ -15,24 +15,37 @@ export class EraserTool extends BaseTool {
         this._startY = null;
     }
 
+    // Shift held with no button down previews the line from the anchor.
+    onHover(x, y, e) {
+        if (this.previewLineFromAnchor(x, y, e)) return;
+        super.onHover(x, y, e);
+    }
+
     onPointerDown(x, y, e) {
         const layer = this.doc.getActiveLayer();
         if (layer.locked) return;
         this._lineMode = e.shiftKey;
         if (this._lineMode) {
-            this._startX = x;
-            this._startY = y;
+            // Continue from the last erased pixel when there is one.
+            if (this.hasLineAnchor()) {
+                this._startX = this._anchorX;
+                this._startY = this._anchorY;
+            } else {
+                this._startX = x;
+                this._startY = y;
+            }
         } else {
             this._lastX = x;
             this._lastY = y;
             this._eraseBrush(layer, x, y);
+            this.setLineAnchor(x, y);
         }
     }
 
     onPointerMove(x, y, e) {
         if (this._lineMode) {
             if (this._startX === null) return;
-            const end = e.ctrlKey ? snapEndpoint(this._startX, this._startY, x, y) : { x, y };
+            const end = this.lineEndpoint(this._startX, this._startY, x, y, e);
             this.canvasView.clearOverlay();
             bresenhamLine(this._startX, this._startY, end.x, end.y, (px, py) => {
                 this.previewBrush(px, py);
@@ -48,16 +61,19 @@ export class EraserTool extends BaseTool {
 
         this._lastX = x;
         this._lastY = y;
+        this.setLineAnchor(x, y);
     }
 
     onPointerUp(x, y, e) {
         if (this._lineMode && this._startX !== null) {
             const layer = this.doc.getActiveLayer();
             if (!layer.locked) {
-                const end = e.ctrlKey ? snapEndpoint(this._startX, this._startY, x, y) : { x, y };
+                const end = this.lineEndpoint(this._startX, this._startY, x, y, e);
                 bresenhamLine(this._startX, this._startY, end.x, end.y, (px, py) => {
                     this._eraseBrush(layer, px, py);
                 });
+                // Chain: the end of this line anchors the next one.
+                this.setLineAnchor(end.x, end.y);
             }
             this.canvasView.clearOverlay();
         }

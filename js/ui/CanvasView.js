@@ -65,6 +65,11 @@ export class CanvasView {
         this._lastScreenX = 0;
         this._lastScreenY = 0;
         this._lastMoveEvent = null;
+        // Live modifier state. onHover is called from three places (a move,
+        // a Shift press, and the tail of render()), and a tool's preview
+        // depends on Shift/Ctrl — so every one of them has to pass the state as
+        // it is *now*, not as it was during the last mouse move.
+        this._modifiers = { shiftKey: false, ctrlKey: false, altKey: false };
 
         this._setupResize();
         this._setupEvents();
@@ -81,7 +86,7 @@ export class CanvasView {
         this._activeTool = tool;
         this.clearOverlay();
         if (tool && tool.onHover) {
-            tool.onHover(this._lastDocX, this._lastDocY);
+            tool.onHover(this._lastDocX, this._lastDocY, this._modifiers);
         }
         this._updateCursor();
     }
@@ -91,9 +96,24 @@ export class CanvasView {
         ro.observe(this.container);
     }
 
+    _trackModifiers(e) {
+        this._modifiers.shiftKey = e.shiftKey;
+        this._modifiers.ctrlKey = e.ctrlKey;
+        this._modifiers.altKey = e.altKey;
+    }
+
+    // Re-dispatch the cursor's last position with fresh modifier state, so
+    // pressing or releasing Shift updates a preview without the mouse having to
+    // move. Routes to onHover when no button is down — that's what drives the
+    // brush/eraser line preview from the anchor.
     _replayLastMove(keyEvent) {
+        if (!this._lastMoveEvent || !this._activeTool) return;
         const pos = this.screenToDoc(this._lastMoveEvent.clientX, this._lastMoveEvent.clientY);
-        this._activeTool.onPointerMove(pos.x, pos.y, keyEvent);
+        if (this._pointerDown) {
+            this._activeTool.onPointerMove(pos.x, pos.y, keyEvent);
+        } else if (this._activeTool.onHover) {
+            this._activeTool.onHover(pos.x, pos.y, this._modifiers);
+        }
         this.render();
     }
 
@@ -162,7 +182,8 @@ export class CanvasView {
                 this.container.style.cursor = 'grab';
                 e.preventDefault();
             }
-            if (e.key === 'Shift' && this._lastMoveEvent) {
+            if ((e.key === 'Shift' || e.key === 'Control') && this._lastMoveEvent && !e.repeat) {
+                this._trackModifiers(e);
                 this._replayLastMove(e);
             }
         });
@@ -175,7 +196,8 @@ export class CanvasView {
                     this.bus.emit('space-tap');
                 }
             }
-            if (e.key === 'Shift' && this._lastMoveEvent) {
+            if ((e.key === 'Shift' || e.key === 'Control') && this._lastMoveEvent) {
+                this._trackModifiers(e);
                 this._replayLastMove(e);
             }
         });
@@ -299,13 +321,15 @@ export class CanvasView {
             return;
         }
 
+        this._lastMoveEvent = e;
+        this._trackModifiers(e);
+
         if (this._pointerDown && this._activeTool) {
-            this._lastMoveEvent = e;
             this._activeTool.onPointerMove(pos.x, pos.y, e);
             this.render();
         } else if (this._activeTool) {
             if (this._activeTool.onHover) {
-                this._activeTool.onHover(pos.x, pos.y);
+                this._activeTool.onHover(pos.x, pos.y, this._modifiers);
             }
             // Show move cursor when Shift held near a guide (not during active drag)
             if (e.shiftKey && this.guides.visible && !this.guides.isDragging()) {
@@ -330,7 +354,6 @@ export class CanvasView {
             const pos = this.screenToDoc(e.clientX, e.clientY);
             this._activeTool.onPointerUp(pos.x, pos.y, e);
             this._pointerDown = false;
-            this._lastMoveEvent = null;
             this._updateCursor();
             this.render();
             this.bus.emit('layer-changed');
@@ -559,7 +582,7 @@ export class CanvasView {
 
         // Redraw brush preview if the active tool supports it
         if (this._activeTool && this._activeTool.onHover && !this._pointerDown) {
-            this._activeTool.onHover(this._lastDocX, this._lastDocY);
+            this._activeTool.onHover(this._lastDocX, this._lastDocY, this._modifiers);
         }
     }
 

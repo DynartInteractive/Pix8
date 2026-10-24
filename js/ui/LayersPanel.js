@@ -90,6 +90,12 @@ export class LayersPanel {
             this._opacityRow.classList.add('disabled');
         }
 
+        // Wiping the list collapses its scrollHeight, which makes the browser
+        // clamp scrollTop to 0 — so a scrolled list jumps to the top on every
+        // render, not just on a tab switch but on every brush stroke too
+        // (those emit layer-changed as well). Capture it, restore it after the
+        // items are back. A shorter list clamps on its own, which is correct.
+        const scrollTop = this.list.scrollTop;
         this.list.innerHTML = '';
 
         // Render layers top-to-bottom (reverse of array order, since array[0] = bottom)
@@ -188,6 +194,19 @@ export class LayersPanel {
             item.appendChild(name);
             this.list.appendChild(item);
         }
+
+        this.list.scrollTop = scrollTop;
+    }
+
+    // #layers-list is a single DOM node shared by every tab, so its scroll
+    // offset belongs to the tab rather than to this panel — each document has
+    // its own layer stack. app.js persists it next to zoom/pan.
+    getScrollTop() {
+        return this.list.scrollTop;
+    }
+
+    setScrollTop(value) {
+        this.list.scrollTop = value || 0;
     }
 
     _drawThumbnail(canvas, layer) {

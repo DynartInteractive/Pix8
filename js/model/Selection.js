@@ -158,6 +158,58 @@ export class Selection {
         return this.floating !== null;
     }
 
+    // The rect a layer occupies in document space, inclusive, in the same
+    // convention as getBounds() (not Layer.getContentBounds(), which is
+    // exclusive on right/bottom and tracks content rather than geometry).
+    static layerRect(layer) {
+        return {
+            minX: layer.offsetX,
+            minY: layer.offsetY,
+            maxX: layer.offsetX + layer.width - 1,
+            maxY: layer.offsetY + layer.height - 1,
+        };
+    }
+
+    // Union of the rects of every visible layer — the area a merged copy can
+    // actually draw content from.
+    static visibleLayersRect(layers) {
+        let out = null;
+        for (const layer of layers) {
+            if (!layer.visible) continue;
+            const r = Selection.layerRect(layer);
+            if (!out) {
+                out = { ...r };
+            } else {
+                out.minX = Math.min(out.minX, r.minX);
+                out.minY = Math.min(out.minY, r.minY);
+                out.maxX = Math.max(out.maxX, r.maxX);
+                out.maxY = Math.max(out.maxY, r.maxY);
+            }
+        }
+        return out;
+    }
+
+    // Narrow a selection bounds box to where a source actually has pixels.
+    //
+    // Select All on a 512x512 document marks the whole document, so a copy off
+    // a 32x32 sprite layer used to yield a 512x512 block whose entire overhang
+    // was TRANSPARENT — and pasting that into a 32x32 document produced a
+    // 512x512 "Pasted" layer. Clipping to the source rect gives the 32x32 the
+    // layer actually holds.
+    //
+    // Deliberately the layer *rect*, not its content bounds: transparent
+    // padding inside a sprite is usually intentional (alignment, hit box), and
+    // trimming to non-transparent pixels would silently discard it.
+    static clipBounds(bounds, rect) {
+        if (!bounds || !rect) return null;
+        const minX = Math.max(bounds.minX, rect.minX);
+        const minY = Math.max(bounds.minY, rect.minY);
+        const maxX = Math.min(bounds.maxX, rect.maxX);
+        const maxY = Math.min(bounds.maxY, rect.maxY);
+        if (minX > maxX || minY > maxY) return null;
+        return { minX, minY, maxX, maxY };
+    }
+
     liftPixels(layer) {
         if (this.floating) return; // already lifted
         const bounds = this.getBounds();
@@ -204,7 +256,7 @@ export class Selection {
                 originY: source.originY
             };
         }
-        const bounds = this.getBounds();
+        const bounds = Selection.clipBounds(this.getBounds(), Selection.layerRect(layer));
         if (!bounds) return null;
 
         const { minX, minY, maxX, maxY } = bounds;
@@ -227,7 +279,9 @@ export class Selection {
     }
 
     copyPixelsMerged(layers) {
-        const bounds = this.hasFloating() ? this._floatingBounds() : this.getBounds();
+        const bounds = this.hasFloating()
+            ? this._floatingBounds()
+            : Selection.clipBounds(this.getBounds(), Selection.visibleLayersRect(layers));
         if (!bounds) return null;
 
         const { minX, minY, maxX, maxY } = bounds;

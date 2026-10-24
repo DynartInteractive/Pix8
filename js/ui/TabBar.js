@@ -7,6 +7,10 @@ export class TabBar {
     }
 
     render(tabs, activeTabId) {
+        // Rebuilding collapses scrollWidth and clamps scrollLeft to 0, which
+        // scrolled the bar back to the first tab on every switch or rename once
+        // the tabs overflowed 'overflow-x: auto'.
+        const scrollLeft = this.container.scrollLeft;
         this.container.innerHTML = '';
         for (const tab of tabs) {
             const el = document.createElement('div');
@@ -40,6 +44,12 @@ export class TabBar {
 
             this.container.appendChild(el);
         }
+
+        this.container.scrollLeft = scrollLeft;
+        // A freshly created tab, or one activated by keyboard, can sit past the
+        // right edge; 'nearest' leaves an already-visible tab where it is.
+        const active = this.container.querySelector('.tab.active');
+        if (active) active.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     }
 
     _startRename(nameEl, tab) {
