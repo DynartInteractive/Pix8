@@ -1,23 +1,37 @@
 /* Palette panel (bottom-right) */
 #palette-panel {
-    flex: 1;
+    /* Takes exactly the height its 16 rows of swatches need and no more, so
+       #layers-panel (flex: 1) absorbs all the leftover space in the dock.
+       Shrinkable (0 1 auto, not 0 0 auto) purely as a floor: flex-shrink only
+       engages once the dock is genuinely too short for both panels, and losing
+       the bottom of the palette to a scrollbar beats having it clipped off by
+       #right-panel's overflow: hidden. */
+    flex: 0 1 auto;
+    min-height: 0;
     display: flex;
     flex-direction: column;
-    min-height: 0;
 }
 
 #palette-grid {
-    flex: 1;
+    flex: 0 1 auto;
+    /* In the normal case this never triggers: the grid's height is exactly 16
+       fixed rows and the panel asks for precisely that. It is here only for the
+       squeezed case above. */
     overflow-y: auto;
     padding: 6px;
     display: grid;
-    grid-template-columns: repeat(16, 1fr);
+    /* Fixed rows as well as columns. Squares used to come from aspect-ratio,
+       which Firefox only shipped in 89 — too late for the Mypal builds this
+       runs on, where the swatches would have collapsed to their border height
+       the moment the panel stopped stretching to fill the dock. */
+    grid-template-columns: repeat(16, var(--swatch-size));
+    grid-auto-rows: var(--swatch-size);
+    justify-content: center;
     gap: 1px;
     align-content: start;
 }
 
 .palette-swatch {
-    aspect-ratio: 1;
     border: 1px solid var(--border);
     cursor: pointer;
     min-width: 0;

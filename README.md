@@ -8,7 +8,7 @@
 
 <p align="center">Try it online: <a href="https://pix8.app">pix8.app</a></p>
 
-![Pix8 Screenshot](screenshot-v1.4.0.png)
+![Pix8 Screenshot](docs/images/screenshot-v1.8.0.png)
 
 ## ⬇️ Download
 
@@ -22,7 +22,7 @@ No download needed to just try it — [pix8.app](https://pix8.app) runs the same
 
 ## Features
 
-- **256-color indexed palette** -- all 256 entries (0-255) are usable colors, transparency is a separate sentinel value.  
+- **256-color indexed palette** -- all 256 entries (0-255) are usable colors, transparency is a separate sentinel value. New documents start with Deluxe Paint II's default palette; `palettes/` holds it and the previous default as loadable `.PAL` files  
 - **Photoshop-like layout** -- toolbar with flyout groups on the left, canvas in the center, layers and palette on the right
 - **Pixel-perfect zoom** -- nearest-neighbor interpolation at all zoom levels (1x-32x), pixel grid overlay at 12x+
 - **Configurable grid** -- user-settable grid size with snap-to-grid support (View > Grid Settings)
@@ -30,9 +30,10 @@ No download needed to just try it — [pix8.app](https://pix8.app) runs the same
 - **Independent layers** -- each layer has its own size and position, auto-extends when drawing outside bounds
 - **Fixed-size layers** -- lock a layer to exact dimensions via Layer > Set Fixed Size, preventing auto-extend; used for ICO export workflow
 - **Layer operations** -- add, delete, reorder, duplicate, toggle visibility, solo, rename, opacity (0-100%), trim to content, crop to canvas, set/remove fixed size, show border
+- **Layer name filter** -- narrow a long layer list by name as you type, with a match count; the active layer stays visible even when it doesn't match
 - **Unified export dialog** -- single "Export as..." dialog (Ctrl+Shift+E) with format selector (BMP, PCX, PNG, GIF, SPX, ICO) and format-specific options
 - **Drawing tools** -- Brush, Eraser, Color Picker, Rectangle, Filled Rectangle, Ellipse, Filled Ellipse, Flood Fill
-- **Brush/Eraser line mode** -- hold Shift to draw straight lines, Ctrl to snap angles to 22.5-degree increments
+- **Brush/Eraser line mode** -- hold Shift to draw a straight line from the last pixel you drew, previewed live before you click (GIMP-style); each line re-anchors at its end so segments chain. Ctrl snaps angles to 22.5-degree increments
 - **Brush right-click** -- draw with background color using right mouse button
 - **Pixel-perfect preview** -- all drawing tools show an 80% opacity preview of the exact pixels before committing
 - **Move tool** -- reposition layers and floating selections; snaps layer content edges to grid lines and guides
@@ -42,14 +43,14 @@ No download needed to just try it — [pix8.app](https://pix8.app) runs the same
 - **Free Transform** -- move, resize, and rotate selected pixels with interactive handles (T shortcut), Ctrl snaps rotation to 22.5-degree increments
 - **Text tool** -- create text layers with configurable font, size, bold/italic/underline, anti-aliased palette-mapped rendering, and palette color picker (W shortcut)
 - **Multi-document tabs** -- independent documents with separate layers, palette, undo history, and zoom/pan state
-- **Clipboard** -- Cut, Copy, Copy Merged, Paste, Paste in Place; automatic palette color remapping between documents; system clipboard paste with dithering
+- **Clipboard** -- Cut, Copy, Copy Merged, Paste, Paste in Place; copies are clipped to the source layer, so Select All on a small layer in a large document yields the layer, not the canvas; automatic palette color remapping between documents; system clipboard paste with dithering
 - **Truecolor image import** -- File > Open supports PNG/JPG/GIF/WebP with median-cut quantization and dithering (None/Floyd-Steinberg/Ordered Bayer)
 - **Frame animation** -- sprite-sheet animation with per-frame pixel data; frame timeline with thumbnails, tag groups, play/pause/stop, tag-based playback; GIF and SPX export also available for still (non-animated) images
 - **Linked cels** -- share one image between frames per layer (Aseprite-style): editing any linked frame updates them all, and a linked frame costs no extra space in the `.pix8` file. Shift+click the timeline to select a range, then Link/Unlink; the bar under the thumbnails shows runs for the **active layer**
 - **Onion skinning** -- red-tinted previous frames, blue-tinted next frames; configurable opacity; extended mode (+-2 frames)
 - **GrafX2-style palette editor** -- range selection, HSV color picker (saturation/value square + hue strip), RGB sliders with hex input, batch operations (Swap, X-Swap, Copy, Flip, X-Flip, Neg, Gray, Spread, Merge, Sort, Reduce, Zap Unused, Used highlight), 6-bit VGA mode, palette Load/Save (PAL/BMP/PCX)
 
-<p align="center"><img src="https://github.com/DynartInteractive/Pix8/raw/main/palette-editor-v1.6.5.png" alt="Palette Editor Screenshot"></p>
+<p align="center"><img src="https://github.com/DynartInteractive/Pix8/raw/main/docs/images/palette-editor-v1.6.5.png" alt="Palette Editor Screenshot"></p>
 
 - **Toast notifications** -- non-blocking slide-down messages replace browser alert dialogs
 - **Desktop-style menus** -- click to open, hover to switch, same for toolbar flyout groups
@@ -190,7 +191,7 @@ images/            SVG icons (editable with Inkscape)
 js/
   app.js           Application bootstrap and wiring
   EventBus.js      Simple pub/sub event system
-  constants.js     VGA palette, zoom levels, TRANSPARENT sentinel
+  constants.js     Deluxe Paint II default palette, zoom levels, TRANSPARENT sentinel
   model/           Data model (ImageDocument, Layer, Palette, Brush, Selection)
   history/         Undo/redo manager
   render/          Compositing renderer and grid overlay

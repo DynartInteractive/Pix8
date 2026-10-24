@@ -15,6 +15,16 @@
     --swatch-border: #555555;
     --checkerboard-light: #3a3a3a;
     --checkerboard-dark: #2a2a2a;
+
+    --panel-width: 280px;
+    /* Exact width of one palette swatch: the right panel's content box
+       (--panel-width less its 1px border, under border-box), less #palette-grid's
+       6px padding each side, less the 15 one-pixel gaps, over 16 columns.
+       The palette grid uses this for its rows as well, which is what makes the
+       16x16 grid square and lets #palette-panel size itself to exactly fit all
+       256 swatches with no scrollbar. Derived rather than hardcoded so changing
+       --panel-width keeps both true. */
+    --swatch-size: calc((var(--panel-width) - 1px - 12px - 15px) / 16);
 }
 
 *, *::before, *::after {
@@ -38,7 +48,7 @@ html, body {
 
 #app {
     display: grid;
-    grid-template-columns: 48px 1fr 280px;
+    grid-template-columns: 48px 1fr var(--panel-width);
     grid-template-rows: auto auto 1fr auto;
     grid-template-areas:
         "menubar menubar menubar"

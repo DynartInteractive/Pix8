@@ -14,6 +14,36 @@ export class LayersPanel {
         this._lastClickTime = 0;
         this._lastClickIndex = -1;
 
+        // Name filter. Display-only: it never touches the document, so indices
+        // stay the real layer indices and every action keeps working on them.
+        this._filter = '';
+        this._filterInput = document.getElementById('layer-filter');
+        this._filterCount = document.getElementById('layer-filter-count');
+
+        // Thumbnails are drawn lazily, only for rows actually on screen.
+        // render() runs on every layer-changed — i.e. on every brush stroke —
+        // and compositing a thumbnail per layer made that cost scale with the
+        // layer count: at 200 layers it was 200 composites per stroke, all but
+        // a dozen of them for rows scrolled out of sight.
+        this._thumbRows = [];
+        this._thumbDrawn = new Set();
+        this.list.addEventListener('scroll', () => this._drawVisibleThumbs());
+
+        this._filterInput.addEventListener('input', () => {
+            this._filter = this._filterInput.value.trim().toLowerCase();
+            this.render();
+        });
+        this._filterInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') { e.preventDefault(); this._clearFilter(); }
+            // Tool shortcuts are already guarded against inputs, but Enter and
+            // the arrows would otherwise reach the document behind the panel.
+            e.stopPropagation();
+        });
+        document.getElementById('layer-filter-clear').addEventListener('click', () => {
+            this._clearFilter();
+            this._filterInput.focus();
+        });
+
         document.getElementById('layer-add-btn').addEventListener('click', () => this._addLayer());
         document.getElementById('layer-del-btn').addEventListener('click', () => this._deleteLayer());
         document.getElementById('layer-up-btn').addEventListener('click', () => this._moveLayer(-1));
@@ -69,6 +99,16 @@ export class LayersPanel {
         this.render();
     }
 
+    _clearFilter() {
+        this._filterInput.value = '';
+        this._filter = '';
+        this.render();
+    }
+
+    _matchesFilter(layer) {
+        return !this._filter || layer.name.toLowerCase().includes(this._filter);
+    }
+
     _snapshotMeta() {
         return {
             activeIndex: this.doc.activeLayerIndex,
@@ -98,13 +138,28 @@ export class LayersPanel {
         const scrollTop = this.list.scrollTop;
         this.list.innerHTML = '';
 
+        const total = this.doc.layers.length;
+        const matches = this._filter
+            ? this.doc.layers.filter(l => this._matchesFilter(l)).length
+            : total;
+        this._filterCount.textContent = this._filter ? `${matches}/${total}` : '';
+
+        const rows = [];
+
         // Render layers top-to-bottom (reverse of array order, since array[0] = bottom)
         for (let i = this.doc.layers.length - 1; i >= 0; i--) {
             const layer = this.doc.layers[i];
-            const item = document.createElement('div');
             const isActive = i === this.doc.activeLayerIndex;
+            const matched = this._matchesFilter(layer);
+            // The active layer stays visible even when it doesn't match: Delete,
+            // Move and Duplicate all act on it, and operating on a row you can't
+            // see is how you lose work. It's dimmed to show it's not a match.
+            if (!matched && !isActive) continue;
+
+            const item = document.createElement('div');
             const isSelected = this.doc.selectedLayerIndices.has(i);
-            item.className = 'layer-item' + (isActive ? ' active' : '') + (isSelected ? ' selected' : '');
+            item.className = 'layer-item' + (isActive ? ' active' : '') + (isSelected ? ' selected' : '')
+                + (matched ? '' : ' filtered-out');
 
             // Visibility toggle
             const vis = document.createElement('div');
@@ -140,7 +195,9 @@ export class LayersPanel {
                 this.bus.emit('layer-changed');
             });
 
-            // Thumbnail
+            // Thumbnail. Left blank here; _drawVisibleThumbs() fills in the
+            // ones that are actually in view, and the scroll handler catches
+            // the rest as they appear.
             let thumb;
             if (layer.type === 'text') {
                 thumb = document.createElement('div');
@@ -151,7 +208,7 @@ export class LayersPanel {
                 thumb.className = 'layer-thumbnail';
                 thumb.width = 32;
                 thumb.height = 32;
-                this._drawThumbnail(thumb, layer);
+                rows.push({ item, canvas: thumb, layer });
             }
 
             // Name
@@ -196,6 +253,43 @@ export class LayersPanel {
         }
 
         this.list.scrollTop = scrollTop;
+
+        // Scroll position first: which rows count as visible depends on it.
+        this._thumbRows = rows;
+        this._thumbDrawn.clear();
+        this._drawVisibleThumbs();
+    }
+
+    // Draw thumbnails for the rows inside the scroll viewport (plus a few rows
+    // of slack either side) that aren't already drawn. Rows are uniform height,
+    // so the visible range is arithmetic rather than 200 offsetTop reads.
+    _drawVisibleThumbs() {
+        const rows = this._thumbRows;
+        if (!rows.length) return;
+
+        let first = 0;
+        let last = rows.length - 1;
+        const rowHeight = rows[0].item.offsetHeight;
+        const viewHeight = this.list.clientHeight;
+        // Both are 0 while the panel is hidden or not laid out yet; drawing
+        // everything is the safe fallback, and it's what used to happen anyway.
+        if (rowHeight > 0 && viewHeight > 0) {
+            const SLACK = 3;
+            const top = this.list.scrollTop;
+            first = Math.max(0, Math.floor(top / rowHeight) - SLACK);
+            last = Math.min(last, Math.ceil((top + viewHeight) / rowHeight) + SLACK);
+            // A browser clamps scrollTop when the content shrinks under it (say
+            // the filter narrows a list that was scrolled to the bottom), but
+            // don't lean on that: an out-of-range window would silently draw
+            // nothing at all.
+            first = Math.min(first, last);
+        }
+
+        for (let k = first; k <= last; k++) {
+            if (this._thumbDrawn.has(k)) continue;
+            this._drawThumbnail(rows[k].canvas, rows[k].layer);
+            this._thumbDrawn.add(k);
+        }
     }
 
     // #layers-list is a single DOM node shared by every tab, so its scroll

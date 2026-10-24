@@ -1,8 +1,8 @@
-import { generateVGAPalette } from '../constants.js';
+import { generateDefaultPalette } from '../constants.js';
 
 export class Palette {
     constructor() {
-        this.colors = generateVGAPalette();
+        this.colors = generateDefaultPalette();
     }
 
     getColor(index) {

@@ -6,15 +6,15 @@
     <title>Pix8 — Indexed Color Pixel Art Editor</title>
     <!-- .ico first: it carries the hand-tuned 16/24/32px entries the browser
          tab needs. The 512px .png is the high-DPI fallback. -->
-    <link rel="icon" href="images/icon-app.ico?v=1.7.0" sizes="16x16 24x24 32x32 48x48 64x64 96x96 128x128 256x256">
-    <link rel="icon" type="image/png" href="images/icon-app.png?v=1.7.0" sizes="512x512">
-    <link rel="stylesheet" href="css/main.css?v=1.7.0">
-    <link rel="stylesheet" href="css/toolbar.css?v=1.7.0">
-    <link rel="stylesheet" href="css/canvas-area.css?v=1.7.0">
-    <link rel="stylesheet" href="css/layers-panel.css?v=1.7.0">
-    <link rel="stylesheet" href="css/palette-panel.css?v=1.7.0">
-    <link rel="stylesheet" href="css/frames.css?v=1.7.0">
-    <link rel="stylesheet" href="css/tabs.css?v=1.7.0">
+    <link rel="icon" href="images/icon-app.ico?v=1.8.0" sizes="16x16 24x24 32x32 48x48 64x64 96x96 128x128 256x256">
+    <link rel="icon" type="image/png" href="images/icon-app.png?v=1.8.0" sizes="512x512">
+    <link rel="stylesheet" href="css/main.css?v=1.8.0">
+    <link rel="stylesheet" href="css/toolbar.css?v=1.8.0">
+    <link rel="stylesheet" href="css/canvas-area.css?v=1.8.0">
+    <link rel="stylesheet" href="css/layers-panel.css?v=1.8.0">
+    <link rel="stylesheet" href="css/palette-panel.css?v=1.8.0">
+    <link rel="stylesheet" href="css/frames.css?v=1.8.0">
+    <link rel="stylesheet" href="css/tabs.css?v=1.8.0">
 </head>
 <body>
     <div id="app">
@@ -41,7 +41,7 @@
                 <div id="color-selector-swatches">
                     <div id="color-fg-swatch" title="Foreground color"></div>
                     <div id="color-bg-swatch" title="Background color"></div>
-                    <button id="color-swap-btn" title="Swap colors (X)"><img src="images/icon-swap.svg?v=1.7.0" draggable="false"></button>
+                    <button id="color-swap-btn" title="Swap colors (X)"><img src="images/icon-swap.svg?v=1.8.0" draggable="false"></button>
                 </div>
                 <div id="color-index-label">FG:1 BG:0</div>
             </div>
@@ -68,12 +68,17 @@
                 <div class="panel-header">
                     <span>Layers</span>
                     <div class="panel-actions" id="layers-actions">
-                        <button class="icon-btn" id="layer-add-btn" title="Add layer"><img src="images/icon-add.svg?v=1.7.0" class="panel-icon" draggable="false"></button>
-                        <button class="icon-btn" id="layer-del-btn" title="Delete layer"><img src="images/icon-delete.svg?v=1.7.0" class="panel-icon" draggable="false"></button>
-                        <button class="icon-btn" id="layer-up-btn" title="Move up"><img src="images/icon-move-up.svg?v=1.7.0" class="panel-icon" draggable="false"></button>
-                        <button class="icon-btn" id="layer-down-btn" title="Move down"><img src="images/icon-move-down.svg?v=1.7.0" class="panel-icon" draggable="false"></button>
-                        <button class="icon-btn" id="layer-dup-btn" title="Duplicate"><img src="images/icon-duplicate.svg?v=1.7.0" class="panel-icon" draggable="false"></button>
+                        <button class="icon-btn" id="layer-add-btn" title="Add layer"><img src="images/icon-add.svg?v=1.8.0" class="panel-icon" draggable="false"></button>
+                        <button class="icon-btn" id="layer-del-btn" title="Delete layer"><img src="images/icon-delete.svg?v=1.8.0" class="panel-icon" draggable="false"></button>
+                        <button class="icon-btn" id="layer-up-btn" title="Move up"><img src="images/icon-move-up.svg?v=1.8.0" class="panel-icon" draggable="false"></button>
+                        <button class="icon-btn" id="layer-down-btn" title="Move down"><img src="images/icon-move-down.svg?v=1.8.0" class="panel-icon" draggable="false"></button>
+                        <button class="icon-btn" id="layer-dup-btn" title="Duplicate"><img src="images/icon-duplicate.svg?v=1.8.0" class="panel-icon" draggable="false"></button>
                     </div>
+                </div>
+                <div id="layer-filter-row">
+                    <input type="text" id="layer-filter" placeholder="Filter by name" autocomplete="off" spellcheck="false">
+                    <span id="layer-filter-count"></span>
+                    <button class="icon-btn" id="layer-filter-clear" title="Clear filter (Esc)">&#215;</button>
                 </div>
                 <div id="layer-opacity-row">
                     <label>Opacity:</label>
@@ -91,7 +96,7 @@
                 <div class="panel-header">
                     <span>Palette</span>
                     <div class="panel-actions">
-                        <button class="icon-btn" id="palette-edit-btn" title="Edit palette"><img src="images/icon-edit.svg?v=1.7.0" class="panel-icon" draggable="false"></button>
+                        <button class="icon-btn" id="palette-edit-btn" title="Edit palette"><img src="images/icon-edit.svg?v=1.8.0" class="panel-icon" draggable="false"></button>
                     </div>
                 </div>
                 <div id="palette-grid">
@@ -112,6 +117,6 @@
     </div>
 
     <div id="toast"></div>
-    <script src="dist/bundle.js?v=1.7.0"></script>
+    <script src="dist/bundle.js?v=1.8.0"></script>
 </body>
 </html>

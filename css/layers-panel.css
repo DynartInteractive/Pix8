@@ -7,6 +7,48 @@
     border-bottom: 1px solid var(--border);
 }
 
+#layer-filter-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 6px;
+    border-bottom: 1px solid var(--border);
+}
+
+#layer-filter {
+    flex: 1;
+    min-width: 0;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    color: var(--text);
+    font-size: 11px;
+    padding: 2px 4px;
+}
+
+#layer-filter:focus {
+    border-color: var(--accent);
+    outline: none;
+}
+
+#layer-filter-count {
+    font-size: 10px;
+    color: var(--text-dim);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+#layer-filter-clear {
+    font-size: 14px;
+    line-height: 1;
+    padding: 0 4px;
+}
+
+/* The active layer, shown despite not matching the filter. */
+.layer-item.filtered-out {
+    opacity: 0.45;
+}
+
 #layer-opacity-row {
     display: flex;
     align-items: center;
