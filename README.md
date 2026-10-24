@@ -186,7 +186,7 @@ Then `npm run build` and deploy. The new query strings give browsers fresh URLs,
 ```
 css/               CSS files (layout, dark theme, panel styles)
 dist/              Webpack output (bundle.js)
-docs/              Algorithm documentation
+docs/              Algorithm documentation, release notes, roadmap
 images/            SVG icons (editable with Inkscape)
 js/
   app.js           Application bootstrap and wiring
@@ -213,6 +213,14 @@ webpack.config.js  Webpack configuration
 
 ## Future Improvements
 
+Planned, with the reasoning and the open questions for each in
+[docs/future-improvements.md](docs/future-improvements.md):
+
+- **Palette animation (color cycling)** -- rotate the colors in a palette range on a timer, the Deluxe Paint trick; defined in the palette editor, which already has range selection
+- **Tabbed docks** -- Layers / Brushes sharing one pane, so a third panel doesn't mean a third shrinking slice of the right panel
+- **Brush management** -- named brushes in a list with thumbnails, like the layers panel, instead of today's single `activeBrush` that each capture overwrites
+- **Gradient fill** -- map a range of palette indices across a line or shape; the natural partner to a palette made of 16-step ramps
+- **Dithering while drawing** -- mix two indices in a pattern at a controllable density, the way DPaint's dither slider worked; today Pix8 only dithers when importing truecolor images
 - **Command/action system** -- Replace the current mixin-based module split with a central command registry. Menus and keyboard shortcuts would dispatch named commands (e.g. `'file:open'`, `'edit:copy'`, `'image:rotate-left'`), and a command registry would route them to handler functions. This would decouple menus, shortcuts, and operations cleanly, making it easy to add new commands, rebind shortcuts, and support command palettes without cross-module dependencies.
 
 ## Known Issues
