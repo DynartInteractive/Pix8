@@ -12,7 +12,7 @@
 
 ## ⬇️ Download
 
-**Windows** — [**Installer** (`Pix8.Setup.1.7.0.exe`)](https://github.com/DynartInteractive/Pix8/releases/download/v1.7.0/Pix8.Setup.1.7.0.exe) · [**Portable** (`Pix8.1.7.0.exe`)](https://github.com/DynartInteractive/Pix8/releases/download/v1.7.0/Pix8.1.7.0.exe)
+**Windows** — [**Installer** (`Pix8.Setup.1.8.0.exe`)](https://github.com/DynartInteractive/Pix8/releases/download/v1.8.0/Pix8.Setup.1.8.0.exe) · [**Portable** (`Pix8.1.8.0.exe`)](https://github.com/DynartInteractive/Pix8/releases/download/v1.8.0/Pix8.1.8.0.exe)
 
 The installer lets you pick the install directory and adds a desktop shortcut; the portable is a single self-extracting file — run it, no install. Both are **unsigned** for now, so SmartScreen warns on first run (*More info → Run anyway*).
 
