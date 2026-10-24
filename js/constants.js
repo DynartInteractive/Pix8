@@ -6,7 +6,7 @@ export function withVersion(path) {
     return `${path}?v=${ASSET_VERSION}`;
 }
 
-// Deluxe Paint II's default 256-colour palette (DP.EXE, 1994).
+// Deluxe Paint II's default 256-color palette (DP.EXE, 1994).
 //
 // Lifted from a screenshot of DPaint's own Palette requester and verified
 // against a second, independently-scaled rendering of the same palette. It is a
@@ -16,12 +16,12 @@ export function withVersion(path) {
 // than approximated.
 //
 // The layout is 16 ramps of 16. DPaint shows them as columns, so each line here
-// is one column of its palette requester: the EGA 16 first, then a grey ramp,
+// is one column of its palette requester: the EGA 16 first, then a gray ramp,
 // then hue ramps running light to dark. Indices 224-231 are black in DPaint
 // itself — free slots, not a transcription error.
 const DELUXE_PAINT_PALETTE = [
     '000000', '0000AA', '00AA00', '00AAAA', 'AA0000', 'AA00AA', 'AA5500', 'AAAAAA', '555555', '5555FF', '55FF55', '55FFFF', 'FF5555', 'FF55FF', 'FFFF55', 'FFFFFF',  //   0- 15  EGA 16
-    'EFEFEF', 'DFDFDF', 'D3D3D3', 'C3C3C3', 'B6B6B6', 'AAAAAA', '9A9A9A', '8E8E8E', '7D7D7D', '717171', '656565', '555555', '494949', '383838', '2C2C2C', '202020',  //  16- 31  grey ramp
+    'EFEFEF', 'DFDFDF', 'D3D3D3', 'C3C3C3', 'B6B6B6', 'AAAAAA', '9A9A9A', '8E8E8E', '7D7D7D', '717171', '656565', '555555', '494949', '383838', '2C2C2C', '202020',  //  16- 31  gray ramp
     'FF0000', 'EF0000', 'E30000', 'D70000', 'CB0000', 'BE0000', 'B20000', 'A60000', '9A0000', '8A0000', '7D0000', '710000', '650000', '590000', '4D0000', '410000',  //  32- 47  red
     'FFDBDB', 'FFBABA', 'FF9E9E', 'FF7D7D', 'FF5D5D', 'FF4141', 'FF2020', 'FF0000', 'FFAA5D', 'FF9A41', 'FF8A20', 'FF7900', 'E76D00', 'CF6100', 'B65500', '9E4D00',  //  48- 63  pink -> orange
     'FFFFDB', 'FFFFBA', 'FFFF9E', 'FFFF7D', 'FFFB5D', 'FFF741', 'FFF720', 'FFF700', 'E7DB00', 'CFC700', 'B6AE00', '9E9E00', '868600', '716D00', '595500', '414100',  //  64- 79  yellow
@@ -38,7 +38,7 @@ const DELUXE_PAINT_PALETTE = [
     '28C730', '28C75D', '28C78A', '28C7B6', '28AAC7', '287DC7', '2851C7', '2C28C7', '5928C7', '8628C7', 'B228C7', 'C728AE', 'C72882', 'C72855', 'C72828', 'FFFFFF',  // 240-255  green -> blue -> red
 ];
 
-// Fresh deep copy per call: Palette instances must not share colour arrays.
+// Fresh deep copy per call: Palette instances must not share color arrays.
 export function generateDefaultPalette() {
     return DELUXE_PAINT_PALETTE.map(hex => [
         parseInt(hex.slice(0, 2), 16),

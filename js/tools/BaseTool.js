@@ -31,7 +31,7 @@ export class BaseTool {
     // commits it and moves the anchor to the new end point, ready to chain.
     //
     // With no anchor yet (first stroke after the tool was picked, or after a
-    // document switch) Shift keeps the older behaviour instead: the press point
+    // document switch) Shift keeps the older behavior instead: the press point
     // starts the line and the drag sets its end.
 
     hasLineAnchor() {
