@@ -3,6 +3,9 @@
   "version": "1.8.0",
   "description": "256-color indexed pixel art editor",
   "main": "electron-main.js",
+  "bin": {
+    "pix8": "tools/pix8.mjs"
+  },
   "author": {
     "name": "Dynart",
     "email": "info@dynart.net",

@@ -1,4 +1,5 @@
 import JSZip from 'jszip';
+import { frameExportNames, forEachFrameImage, sanitizeFilename } from './frameExport.js';
 import { ImageDocument } from '../model/ImageDocument.js';
 import { Layer } from '../model/Layer.js';
 import { Palette } from '../model/Palette.js';
@@ -460,11 +461,7 @@ export function exportPNG(doc, renderer) {
 // Layers whose (sanitized, case-insensitive) name already appears are skipped.
 
 function sanitizeLayerFilename(name) {
-    let n = (name || '').replace(/[\/\\:*?"<>|\x00-\x1f]+/g, '_').replace(/\s+/g, ' ').trim();
-    // Strip trailing dots/spaces (illegal on Windows) and guard reserved/empty names.
-    n = n.replace(/[. ]+$/, '');
-    if (!n) n = 'Layer';
-    return n;
+    return sanitizeFilename(name, 'Layer');
 }
 
 function layerToImageData(doc, layer) {
@@ -543,54 +540,13 @@ export async function exportLayersPNGZip(doc) {
 // than `fox_die_1.png`.
 
 export async function exportFramesPNGZip(doc, renderer, basename) {
-    const frames = doc.frames || [];
-    if (!doc.animationEnabled || frames.length === 0) return null;
-
-    doc.saveCurrentFrame();
-    const savedActiveIndex = doc.activeFrameIndex;
-    // Onion skinning is a working-view aid, and composite() honours it — without
-    // this every exported frame carries the red/blue ghosts of its neighbours.
-    const savedOnion = doc.onionSkinning;
-    doc.onionSkinning = false;
-
-    // A tag marks the start of a run; the frames after it belong to that run
-    // until the next tag. Frames before the first tag belong to no run.
-    const tagOf = [];
-    let current = '';
-    for (const frame of frames) {
-        if (frame.tag) current = frame.tag;
-        tagOf.push(current);
-    }
-    const runLength = new Map();
-    for (const tag of tagOf) runLength.set(tag, (runLength.get(tag) || 0) + 1);
+    const names = frameExportNames(doc, basename);
+    if (names.length === 0) return null;
 
     const zip = new JSZip();
-    const position = new Map();
-    const usedNames = new Set();
-    for (let i = 0; i < frames.length; i++) {
-        doc._restoreLayersFromFrame(frames[i]);
-        const blob = await imageDataToPNGBlob(renderer.composite());
-
-        const tag = tagOf[i];
-        const n = (position.get(tag) || 0) + 1;
-        position.set(tag, n);
-
-        const parts = [basename];
-        if (tag) parts.push(sanitizeLayerFilename(tag));
-        if (runLength.get(tag) > 1) parts.push(String(n));
-        let name = parts.join('_');
-        // Two runs can only collide through an unlucky tag name (a tag literally
-        // called "2", say). Suffix rather than let JSZip silently overwrite.
-        let unique = name, bump = 2;
-        while (usedNames.has(unique.toLowerCase())) unique = `${name}_${bump++}`;
-        usedNames.add(unique.toLowerCase());
-
-        zip.file(unique + '.png', blob);
-    }
-
-    doc._restoreLayersFromFrame(frames[savedActiveIndex]);
-    doc.activeFrameIndex = savedActiveIndex;
-    doc.onionSkinning = savedOnion;
+    await forEachFrameImage(doc, renderer, async (imageData, i) => {
+        zip.file(names[i], await imageDataToPNGBlob(imageData));
+    });
 
     return zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
 }
