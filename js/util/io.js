@@ -535,6 +535,66 @@ export async function exportLayersPNGZip(doc) {
     return zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
 }
 
+// ─── Per-Frame PNG Export (zipped) ───────────────────────────────────────
+// One PNG per animation frame, composited at document size, named
+// <basename>_<tag>_<n>.png — the underscore form the sprite sheet itself uses,
+// so the files feed straight back into texture packing. The _<n> is omitted
+// when a tag holds a single frame, so a one-frame `die` is `fox_die.png` rather
+// than `fox_die_1.png`.
+
+export async function exportFramesPNGZip(doc, renderer, basename) {
+    const frames = doc.frames || [];
+    if (!doc.animationEnabled || frames.length === 0) return null;
+
+    doc.saveCurrentFrame();
+    const savedActiveIndex = doc.activeFrameIndex;
+    // Onion skinning is a working-view aid, and composite() honours it — without
+    // this every exported frame carries the red/blue ghosts of its neighbours.
+    const savedOnion = doc.onionSkinning;
+    doc.onionSkinning = false;
+
+    // A tag marks the start of a run; the frames after it belong to that run
+    // until the next tag. Frames before the first tag belong to no run.
+    const tagOf = [];
+    let current = '';
+    for (const frame of frames) {
+        if (frame.tag) current = frame.tag;
+        tagOf.push(current);
+    }
+    const runLength = new Map();
+    for (const tag of tagOf) runLength.set(tag, (runLength.get(tag) || 0) + 1);
+
+    const zip = new JSZip();
+    const position = new Map();
+    const usedNames = new Set();
+    for (let i = 0; i < frames.length; i++) {
+        doc._restoreLayersFromFrame(frames[i]);
+        const blob = await imageDataToPNGBlob(renderer.composite());
+
+        const tag = tagOf[i];
+        const n = (position.get(tag) || 0) + 1;
+        position.set(tag, n);
+
+        const parts = [basename];
+        if (tag) parts.push(sanitizeLayerFilename(tag));
+        if (runLength.get(tag) > 1) parts.push(String(n));
+        let name = parts.join('_');
+        // Two runs can only collide through an unlucky tag name (a tag literally
+        // called "2", say). Suffix rather than let JSZip silently overwrite.
+        let unique = name, bump = 2;
+        while (usedNames.has(unique.toLowerCase())) unique = `${name}_${bump++}`;
+        usedNames.add(unique.toLowerCase());
+
+        zip.file(unique + '.png', blob);
+    }
+
+    doc._restoreLayersFromFrame(frames[savedActiveIndex]);
+    doc.activeFrameIndex = savedActiveIndex;
+    doc.onionSkinning = savedOnion;
+
+    return zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+}
+
 // ─── PAL Format ─────────────────────────────────────────────────────────
 // 6-bit: raw 768 bytes (256 × RGB, values 0-63)
 // 8-bit: JASC-PAL text format (256 × RGB, values 0-255)

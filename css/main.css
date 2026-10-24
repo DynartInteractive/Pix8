@@ -225,6 +225,25 @@ html, body {
     background: var(--border-light);
 }
 
+/* Firefox ignores every ::-webkit- rule above and falls back to a native
+   scrollbar about twice as tall. That is why the frame timeline's horizontal
+   bar was invisible in Mypal but fine in Supermium: #canvas-area is
+   overflow: hidden and #frame-panel is a fixed 120px, so an 8px styled bar
+   fits in the slack at the bottom while a ~17px native one is clipped away.
+   'thin' is roughly 10px, close enough to match, and colouring it keeps the
+   dark theme consistent instead of punching a light gray bar through it.
+   scrollbar-color inherits, scrollbar-width does not. */
+html {
+    scrollbar-color: var(--bg-input) var(--bg-primary);
+}
+
+#layers-list,
+#palette-grid,
+#tab-bar,
+.frame-list {
+    scrollbar-width: thin;
+}
+
 /* Panel section headers */
 .panel-header {
     display: flex;

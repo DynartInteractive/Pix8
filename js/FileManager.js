@@ -4,7 +4,7 @@ import {
     savePix8, loadPix8,
     exportBMP, importBMP,
     exportPCX, importPCX,
-    exportPNG, exportLayersPNGZip, exportICO, getValidICOLayers, downloadBlob
+    exportPNG, exportLayersPNGZip, exportFramesPNGZip, exportICO, getValidICOLayers, downloadBlob
 } from './util/io.js';
 import { exportGIF } from './util/gif.js';
 import { exportSPXZip } from './util/spx.js';
@@ -435,6 +435,12 @@ export function _showExportDialog() {
                         if (zipBlob) downloadBlob(zipBlob, defaultName + '-layers.zip');
                         break;
                     }
+                    case 'png-frames': {
+                        const zipBlob = await exportFramesPNGZip(
+                            this.doc, this.canvasView.renderer, defaultName);
+                        if (zipBlob) downloadBlob(zipBlob, defaultName + '-frames.zip');
+                        break;
+                    }
                     case 'gif': {
                         const wasAnimated = this.doc.animationEnabled;
                         if (!wasAnimated) this._ensureSingleFrame();
@@ -493,6 +499,9 @@ export function _showExportDialog() {
     const formats = [
         { value: 'png', label: 'PNG' },
         { value: 'png-layers', label: 'PNG layers (zip)' },
+        // Frames come out named <basename>_<tag>_<n>.png, ready for texture
+        // packing; only meaningful once there are frames to export.
+        ...(this.doc.animationEnabled ? [{ value: 'png-frames', label: 'PNG frames (zip)' }] : []),
         { value: 'bmp', label: 'BMP (8-bit indexed)' },
         { value: 'pcx', label: 'PCX (8-bit indexed)' },
         { value: 'gif', label: 'GIF' },

@@ -228,6 +228,22 @@ export class FramePanel {
         // Frame list
         this._list = document.createElement('div');
         this._list.className = 'frame-list';
+
+        // Wheel scrolls the timeline horizontally. Mypal draws no horizontal
+        // scrollbar here even though the row genuinely overflows and there is
+        // room for one (Supermium draws it fine), which leaves the later frames
+        // of a long animation unreachable by mouse. This does not depend on the
+        // browser rendering a scrollbar at all.
+        this._list.addEventListener('wheel', (e) => {
+            if (this._list.scrollWidth <= this._list.clientWidth) return;
+            const raw = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+            if (!raw) return;
+            // Firefox reports deltas in lines (deltaMode 1), Chromium in pixels.
+            const unit = e.deltaMode === 1 ? 16 : (e.deltaMode === 2 ? this._list.clientWidth : 1);
+            e.preventDefault();
+            this._list.scrollLeft += raw * unit;
+        }, { passive: false });
+
         this.panel.appendChild(this._list);
     }
 
@@ -287,7 +303,14 @@ export class FramePanel {
 
         // Drop selection entries left dangling by a delete/undo
         this._selected = new Set([...this._selected].filter(i => i < frames.length));
-        this._selected.add(activeIdx);
+        // "The selection always contains the active frame" is an invariant of
+        // *user* frame changes. Playback moves the active frame too, and
+        // enforcing it there accumulated every frame the playhead passed
+        // through into the selection, so the whole timeline ended up styled as
+        // selected until something reset it. While playing the selection is
+        // left alone; _pause and _stop then collapse it onto whichever frame
+        // the playhead landed on.
+        if (!this._playing) this._selected.add(activeIdx);
 
         // Determine which tag group the active frame belongs to
         let activeTag = null;
@@ -642,6 +665,11 @@ export class FramePanel {
             clearTimeout(this._playTimer);
             this._playTimer = null;
         }
+        // Land on the frame the playhead stopped at, the same as stepping to it
+        // would: one highlighted frame, not the playhead plus whatever was
+        // selected before Play was pressed.
+        this._selectOnly(this.doc.activeFrameIndex);
+        this.render();
     }
 
     _stop() {
@@ -666,5 +694,10 @@ export class FramePanel {
         }
         this._playMode = null;
         this._playFrameIndices = null;
+        // As in _pause: collapse to the frame we landed on. Also covers the
+        // case where the jump above was a no-op because playback happened to
+        // stop on the target frame, which skipped the re-render entirely.
+        this._selectOnly(this.doc.activeFrameIndex);
+        this.render();
     }
 }

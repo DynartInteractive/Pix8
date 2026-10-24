@@ -90,6 +90,10 @@ export function exportGIF(doc, options = {}) {
 
     // Save current state
     const savedActiveIndex = doc.activeFrameIndex;
+    // composite() draws onion skins when they are enabled, which would bake the
+    // red/blue ghosts of the neighbouring frames into every exported frame.
+    const savedOnion = doc.onionSkinning;
+    doc.onionSkinning = false;
     const savedLayers = doc.layers.map(l => ({
         data: l.data, opacity: l.opacity, textData: l.textData,
         offsetX: l.offsetX, offsetY: l.offsetY,
@@ -164,6 +168,7 @@ export function exportGIF(doc, options = {}) {
     }
 
     // Restore original state
+    doc.onionSkinning = savedOnion;
     for (let i = 0; i < doc.layers.length && i < savedLayers.length; i++) {
         const s = savedLayers[i];
         doc.layers[i].data = s.data;

@@ -30,6 +30,9 @@
 
 .frame-list {
     display: flex;
+    /* Without this the flex item refuses to shrink below its content height,
+       which leaves the scrollbar nothing to occupy. */
+    min-height: 0;
     overflow-x: auto;
     gap: 4px;
     padding: 12px 4px 4px 4px;

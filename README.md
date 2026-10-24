@@ -31,7 +31,8 @@ No download needed to just try it — [pix8.app](https://pix8.app) runs the same
 - **Fixed-size layers** -- lock a layer to exact dimensions via Layer > Set Fixed Size, preventing auto-extend; used for ICO export workflow
 - **Layer operations** -- add, delete, reorder, duplicate, toggle visibility, solo, rename, opacity (0-100%), trim to content, crop to canvas, set/remove fixed size, show border
 - **Layer name filter** -- narrow a long layer list by name as you type, with a match count; the active layer stays visible even when it doesn't match
-- **Unified export dialog** -- single "Export as..." dialog (Ctrl+Shift+E) with format selector (BMP, PCX, PNG, GIF, SPX, ICO) and format-specific options
+- **Unified export dialog** -- single "Export as..." dialog (Ctrl+Shift+E) with format selector (BMP, PCX, PNG, PNG layers, PNG frames, GIF, SPX, ICO) and format-specific options
+- **PNG frames export** -- one PNG per animation frame in a zip, named `<basename>_<tag>_<n>.png` (the `_<n>` dropped when a tag holds a single frame), ready for texture packing
 - **Drawing tools** -- Brush, Eraser, Color Picker, Rectangle, Filled Rectangle, Ellipse, Filled Ellipse, Flood Fill
 - **Brush/Eraser line mode** -- hold Shift to draw a straight line from the last pixel you drew, previewed live before you click (GIMP-style); each line re-anchors at its end so segments chain. Ctrl snaps angles to 22.5-degree increments
 - **Brush right-click** -- draw with background color using right mouse button
