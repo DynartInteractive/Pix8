@@ -1,5 +1,7 @@
 import { PaletteEditDialog } from './PaletteEditDialog.js';
 
+const DOUBLE_CLICK_MS = 400;
+
 export class PalettePanel {
     constructor(doc, bus, undoManager) {
         this.doc = doc;
@@ -9,6 +11,12 @@ export class PalettePanel {
         this.grid = document.getElementById('palette-grid');
         this._swatches = [];
         this._dialog = null;
+        // Manual double-click tracking rather than the dblclick event: the
+        // panel is user-select: none and swatches are re-rendered between
+        // clicks, both of which stop dblclick from firing. Same approach as
+        // the layer and tab renames.
+        this._lastClickTime = 0;
+        this._lastClickIndex = -1;
 
         this._buildGrid();
 
@@ -30,6 +38,18 @@ export class PalettePanel {
             swatch.style.backgroundColor = `rgb(${r},${g},${b})`;
 
             swatch.addEventListener('click', () => {
+                const now = Date.now();
+                if (now - this._lastClickTime < DOUBLE_CLICK_MS && this._lastClickIndex === i) {
+                    this._lastClickTime = 0;
+                    // The first click already selected this colour, and the
+                    // dialog opens on the foreground index — so double-clicking
+                    // a swatch lands in the editor with that colour active.
+                    this._openDialog();
+                    return;
+                }
+                this._lastClickTime = now;
+                this._lastClickIndex = i;
+
                 this.doc.fgColorIndex = i;
                 this.bus.emit('fg-color-changed');
             });

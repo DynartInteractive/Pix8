@@ -92,8 +92,18 @@ export class LayersPanel {
             this.bus.emit('layer-changed');
         });
 
-        this.bus.on('layer-changed', () => this.render());
-        this.bus.on('document-changed', () => this.render());
+        // Playback ticks emit layer-changed; the layer list has nothing new to
+        // show for it (same layers, same names, same order) and rebuilding it
+        // ten times a second is what makes it flicker. Thumbnails do go stale
+        // while playing, so one render on the way out catches them up.
+        this._playing = false;
+        this.bus.on('playback-changed', (playing) => {
+            this._playing = playing;
+            if (!playing) this.render();
+        });
+
+        this.bus.on('layer-changed', () => { if (!this._playing) this.render(); });
+        this.bus.on('document-changed', () => { if (!this._playing) this.render(); });
         this.bus.on('active-layer-changed', () => this.render());
 
         this.render();

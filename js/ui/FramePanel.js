@@ -474,6 +474,9 @@ export class FramePanel {
 
     _updateAllThumbs() {
         if (!this.doc.animationEnabled || !this.panel.classList.contains('visible')) return;
+        // Playback moves the playhead, it does not edit cels, so every frame
+        // thumbnail is already correct. render() keeps the highlight moving.
+        if (this._playing) return;
         // Link runs are drawn for the active layer, but 'active-layer-changed'
         // only fires on a layer-row click — add/delete/undo move the active
         // layer silently. Comparing against what we last drew catches them all.
@@ -617,6 +620,10 @@ export class FramePanel {
         this._playing = playing;
         this._playBtn.disabled = playing;
         this._playTagBtn.disabled = playing;
+        // Panels that show structure rather than content can stand down while
+        // the playhead runs — nothing they display changes, and rebuilding them
+        // on every tick is what makes the layers dock flicker.
+        this.bus.emit('playback-changed', playing);
     }
 
     _play() {
@@ -648,8 +655,9 @@ export class FramePanel {
         const nextIdx = indices[nextPos];
         this.doc.loadFrame(nextIdx);
         this.bus.emit('frame-changed');
+        // Not document-changed as well: every listener of it also listens to
+        // layer-changed, so emitting both ran the whole set twice per tick.
         this.bus.emit('layer-changed');
-        this.bus.emit('document-changed');
         const delay = this.doc.frames[nextIdx].delay || 100;
         this._playTimer = setTimeout(() => this._tick(), delay);
     }
@@ -689,8 +697,9 @@ export class FramePanel {
             this.doc.saveCurrentFrame();
             this.doc.loadFrame(targetIdx);
             this.bus.emit('frame-changed');
+            // As in _tick: document-changed has no listener that layer-changed
+            // does not already have.
             this.bus.emit('layer-changed');
-            this.bus.emit('document-changed');
         }
         this._playMode = null;
         this._playFrameIndices = null;
