@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.9.0] - 2026-10-24
+
+### Added
+- **Export animation frames as PNGs.** *Export as...* gains **PNG frames (zip)**: one PNG per frame, composited at document size, named `<basename>_<tag>_<n>.png`. The `_<n>` is dropped when a tag holds a single frame, so a one-frame `die` is `fox_die.png` rather than `fox_die_1.png`, and frames ahead of the first tag fall back to `<basename>_<n>.png`. Underscores rather than dashes because that is what sprite sheet layer names use, so the files feed straight back into texture packing. Only offered when animation is enabled.
+- **A command line.** `pix8 export:frames <source.pix8> <folder>` writes the same frames as loose files instead of a zip, named identically — the naming and the frame walk live in one module both sides call, so they cannot drift. `--clean` deletes `<basename>_*.png` left over from an earlier export, which is what stops a renamed tag quietly leaving its old frames in a texture atlas; `--dry-run` lists without writing. `npm link` puts `pix8` on PATH. PNG encoding goes through Node's own zlib, so JSZip remains the only runtime dependency.
+- **`tools/split-sprites.mjs`** turns a layer-per-sprite sheet into a per-character animated `.pix8`: one frame per layer, grouped into tags by animation name. Canvas size comes from the first frame, `--size=max` when the first frame is not representative, `--default-tag` for animations with no name in their layer, and frames smaller than the canvas are centred rather than pinned to the corner.
+- **Double-click a palette swatch** to open the palette editor, on that colour.
+
+### Changed
+- **`Ctrl+V` now pastes onto the current layer as a floating selection** that can be dragged with the Move tool and is stamped down when the selection commits (Deselect, Select All, a new selection). `Ctrl+Shift+V` does the same at the original coordinates. The previous behaviour, pasting into a new layer, moves to **`Ctrl+Alt+V`** as *Paste as New Layer*. This inverts which paste owns the short key, to match GIMP and Aseprite where pasting onto the current layer is the plain `Ctrl+V`; Pix8 previously had no way to do it at all.
+- **The frame timeline scrolls on the mouse wheel**, handling both Firefox's line-based deltas and Chromium's pixel ones.
+- **Scrollbars are styled for Firefox too.** The app styled `::-webkit-scrollbar` only, so Firefox drew light native bars through the dark theme in every scrollable panel.
+
+### Fixed
+- **Onion skins are no longer baked into exports.** `Renderer.composite()` draws them when they are enabled, so exporting with onion skinning on put the red/blue ghosts of the neighbouring frames into every exported frame. This affected **GIF export in every previous version**, and would have affected the new frame export.
+- **Playback no longer leaves the whole timeline highlighted.** `render()` kept the invariant "the selection contains the active frame", which is right for user frame changes but wrong for playback: every frame the playhead passed through was added and never removed, so after one loop the entire run was styled as selected. The selection is left alone while playing, and pause/stop collapse it onto the frame the playhead landed on — stopping previously left two highlighted frames, the landing frame and whatever was selected before Play.
+- **The layers dock no longer flickers during playback.** Each tick emitted both `layer-changed` and `document-changed`, and no listener of the second is not also a listener of the first, so every tick ran the whole set twice — two full rebuilds of the layers list per frame, ten times a second. The duplicate emit is gone, and the layers dock and frame thumbnails now stand down entirely while the playhead runs, since neither has anything new to show.
+
 ## [1.8.0] - 2026-10-24
 
 ### Added
