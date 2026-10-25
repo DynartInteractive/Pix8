@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Fixed
+- **The 6-bit snap let 255 through.** The VGA DAC holds six bits per channel, so a representable value is `v * 4` for v in 0..63 — which tops out at **252, not 255**. `_snapIf6bit` clamped to 255, and `Math.round(255 / 4) * 4` is 256, so `min(255, 256)` handed back a value that is not on the grid. Spreading a range toward a bright colour produced exactly that and the snap passed it along; the Convert to 6-bit action had no clamp at all and could write 256. Both now go through one `snap6()` that clamps the *index* to 63 before widening.
 - **A pending paste no longer shows up on every frame.** The floating selection lives on the document's one selection rather than on a frame, and `Renderer.composite()` drew it unconditionally — so a timeline thumbnail, which stands for a single frame, showed a paste that belonged to none of them, on all of them at once. `composite({floating: false})` leaves it out, and the three callers that represent one frame use it. This also kept a floating paste out of **frame export**, where it would otherwise have been baked into every PNG — the same trap as onion skinning, one overlay further down.
 
 ### Added

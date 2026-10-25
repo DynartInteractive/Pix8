@@ -799,11 +799,8 @@ export class PaletteEditDialog {
             this._pushPaletteHistory();
             for (let i = 0; i < 256; i++) {
                 const [r, g, b] = this.doc.palette.getColor(i);
-                this.doc.palette.setColor(i,
-                    Math.round(r / 4) * 4,
-                    Math.round(g / 4) * 4,
-                    Math.round(b / 4) * 4
-                );
+                const s = PaletteEditDialog.snap6;
+                this.doc.palette.setColor(i, s(r), s(g), s(b));
             }
             this._6bit = true;
             this._updateInputRange(63);
@@ -829,13 +826,21 @@ export class PaletteEditDialog {
         }
     }
 
+    /**
+     * The VGA DAC holds six bits per channel, so a representable value is
+     * `v * 4` for v in 0..63 -- which tops out at 252, not 255. Clamping to
+     * 255 let a channel through unsnapped: Math.round(255 / 4) * 4 is 256, and
+     * min(255, 256) is 255, which is not on the grid. Spreading toward a bright
+     * colour produced exactly that, so the snap silently passed it along.
+     */
+    static snap6(v) {
+        return Math.min(63, Math.max(0, Math.round(v / 4))) * 4;
+    }
+
     _snapIf6bit(r, g, b) {
         if (!this._6bit) return [r, g, b];
-        return [
-            Math.min(255, Math.round(r / 4) * 4),
-            Math.min(255, Math.round(g / 4) * 4),
-            Math.min(255, Math.round(b / 4) * 4)
-        ];
+        const s = PaletteEditDialog.snap6;
+        return [s(r), s(g), s(b)];
     }
 
     // ── Simple Operations ─────────────────────────────────────────────
