@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- **The export can leave the tag out of the filename.** A tag and a filename answer to different readers: the tag labels the animation for whoever is editing it, while the filename has to be whatever the game already asks for. `pix8 export:frames --no-tags` drops the tag component from every name, so a document tagged `rotate` still exports the `circular_saw_1..3.png` a texture packer expects, and `--tag=OLD:NEW` renames one tag (empty `NEW` drops it) — `--tag=bounce:bottom`, `--tag=float:`. Two runs that would land on the same name are refused rather than interleaved into one numbered sequence, which for an atlas would mean two animations fused into one.
+
 ## [1.9.0] - 2026-10-24
 
 ### Added

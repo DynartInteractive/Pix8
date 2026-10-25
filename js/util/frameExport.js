@@ -21,15 +21,52 @@ export function sanitizeFilename(name, fallback = 'frame') {
 //
 // Underscores, not dashes: the sprite sheets these come from name their layers
 // `player_idle_1`, and the exported files feed back into texture packing.
-export function frameExportNames(doc, basename) {
+//
+// `options` decouples the tag a document uses from the name it exports under,
+// because the two answer to different readers: a tag is for whoever is editing
+// the animation, while the filename has to be whatever the game already asks
+// for. `noTags: true` drops the tag component from every name, and
+// `tagNames: {rotate: '', bounce: 'bottom'}` renames or (empty string) drops
+// individual tags. So a document can carry a `rotate` tag and still export the
+// `circular_saw_1..3.png` a texture packer is expecting.
+export function frameExportNames(doc, basename, options = {}) {
     const frames = doc.frames || [];
     if (!doc.animationEnabled || frames.length === 0) return [];
 
-    const tagOf = [];
+    const overrides = options.tagNames || null;
+    const has = tag => overrides && Object.prototype.hasOwnProperty.call(overrides, tag);
+    const rename = tag => {
+        if (!tag) return '';
+        if (has(tag)) return overrides[tag];
+        return options.noTags ? '' : tag;
+    };
+
+    // Runs are delimited by the tags the document actually holds; the rename
+    // happens after, so a tag dropped from the filename still ends the run
+    // before it.
+    const sourceTagOf = [];
     let current = '';
     for (const frame of frames) {
         if (frame.tag) current = frame.tag;
-        tagOf.push(current);
+        sourceTagOf.push(current);
+    }
+    const tagOf = sourceTagOf.map(rename);
+
+    // Two runs landing on one name would silently interleave into a single
+    // numbered sequence, which for a texture packer means two animations fused
+    // into one. That is never what was meant, so say so instead.
+    const sources = new Map();
+    for (let i = 0; i < frames.length; i++) {
+        const set = sources.get(tagOf[i]) || new Set();
+        set.add(sourceTagOf[i]);
+        sources.set(tagOf[i], set);
+    }
+    for (const [tag, set] of sources) {
+        if (set.size < 2) continue;
+        const from = [...set].map(t => t || '(untagged)').join(', ');
+        throw new Error(
+            `tags ${from} would all export as ${basename}${tag ? '_' + tag : ''}_<n>.png`
+            + ` -- rename them apart instead of dropping both`);
     }
 
     const runLength = new Map();

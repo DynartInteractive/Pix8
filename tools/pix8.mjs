@@ -38,13 +38,19 @@ function usage(code) {
     console.error(`pix8 - Pix8 command line
 
 usage:
-  pix8 export:frames <source.pix8> <output-folder> [--basename=NAME] [--clean] [--dry-run]
+  pix8 export:frames <source.pix8> <output-folder> [options]
 
   export:frames   one PNG per animation frame, named <basename>_<tag>_<n>.png
                   (_<n> omitted when a tag holds a single frame)
 
 options:
   --basename=NAME  override the name taken from the source file
+  --no-tags        leave the tag out of every filename: <basename>_<n>.png.
+                   For a document whose tag is there to label the animation in
+                   the editor rather than to name the files.
+  --tag=OLD:NEW    export the tag OLD as NEW; an empty NEW drops it. Repeatable.
+                     --tag=bounce:bottom      springboard_bottom_1..4.png
+                     --tag=float:             fireball_1..3.png
   --clean          delete <basename>_*.png left over from an earlier export
   --dry-run        list what would be written without writing it
 
@@ -73,6 +79,20 @@ async function exportFrames(argv) {
     const flag = name => argv.find(a => a.startsWith(`--${name}=`))?.slice(name.length + 3);
     const dryRun = argv.includes('--dry-run');
     const clean = argv.includes('--clean');
+    const noTags = argv.includes('--no-tags');
+    // --tag=OLD:NEW, repeatable. Split on the first colon only, so a NEW
+    // containing one is still rejected later by the filename sanitiser rather
+    // than silently truncated here.
+    const tagNames = {};
+    for (const arg of argv.filter(a => a.startsWith('--tag='))) {
+        const spec = arg.slice('--tag='.length);
+        const at = spec.indexOf(':');
+        if (at < 1) {
+            console.error(`pix8: --tag needs OLD:NEW, got "${spec}"`);
+            process.exit(2);
+        }
+        tagNames[spec.slice(0, at)] = spec.slice(at + 1);
+    }
 
     if (positional.length < 2) usage(2);
     const [source, outDir] = positional;
@@ -92,7 +112,23 @@ async function exportFrames(argv) {
     }
 
     const base = flag('basename') || pathBasename(source, extname(source));
-    const names = frameExportNames(doc, base);
+
+    const tags = [...new Set(doc.frames.map(f => f.tag).filter(Boolean))];
+    for (const t of Object.keys(tagNames)) {
+        if (!tags.includes(t)) {
+            console.error(`pix8: --tag=${t}:... but ${source} has no tag "${t}".`);
+            console.error(`      tags present: ${tags.length ? tags.join(', ') : '(none)'}`);
+            process.exit(1);
+        }
+    }
+
+    let names;
+    try {
+        names = frameExportNames(doc, base, { noTags, tagNames });
+    } catch (e) {
+        console.error(`pix8: ${e.message}`);
+        process.exit(1);
+    }
 
     if (!dryRun) {
         mkdirSync(outDir, { recursive: true });
@@ -118,9 +154,8 @@ async function exportFrames(argv) {
         bytes += png.length;
     });
 
-    const tags = new Set(doc.frames.map(f => f.tag).filter(Boolean));
     console.log(`${source} -> ${dryRun ? '(dry run)' : outDir}`);
-    console.log(`  ${written} frame(s), ${tags.size} tag(s), ${doc.width}x${doc.height}` +
+    console.log(`  ${written} frame(s), ${tags.length} tag(s), ${doc.width}x${doc.height}` +
         (dryRun ? '' : `, ${(bytes / 1024).toFixed(1)} KB`));
 
     // Files this export did not write but that look like it did: the leftovers
