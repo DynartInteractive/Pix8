@@ -6,8 +6,17 @@ export class Renderer {
         this._imageData = null;
     }
 
-    composite() {
+    /**
+     * @param options.floating  false to leave the floating selection out. It is
+     *        a working-view overlay living on the document's single selection,
+     *        not on any one frame, so a composite that stands for one frame --
+     *        a timeline thumbnail, an exported PNG -- would otherwise show a
+     *        pending paste on every frame at once. Same reasoning as onion
+     *        skinning, which callers already suppress.
+     */
+    composite(options = {}) {
         const { width, height, palette, layers } = this.doc;
+        const showFloating = options.floating !== false;
 
         if (!this._imageData || this._imageData.width !== width || this._imageData.height !== height) {
             this._imageData = new ImageData(width, height);
@@ -87,7 +96,7 @@ export class Renderer {
 
         // Render floating selection on top
         const sel = this.doc.selection;
-        if (sel && sel.hasFloating()) {
+        if (showFloating && sel && sel.hasFloating()) {
             const f = sel.floating;
             const t = sel.floatingTransform;
 

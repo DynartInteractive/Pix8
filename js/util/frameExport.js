@@ -112,7 +112,10 @@ export async function forEachFrameImage(doc, renderer, visit) {
 
     for (let i = 0; i < frames.length; i++) {
         doc._restoreLayersFromFrame(frames[i]);
-        await visit(renderer.composite(), i);
+        // floating:false for the same reason onion skinning is off above -- a
+        // paste still held above the layer belongs to no frame, and would
+        // otherwise be baked into every one of them.
+        await visit(renderer.composite({ floating: false }), i);
     }
 
     doc._restoreLayersFromFrame(frames[savedActiveIndex]);

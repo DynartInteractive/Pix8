@@ -444,7 +444,7 @@ export class FramePanel {
             doc._restoreLayersFromFrame(frame);
             // Render
             const renderer = new Renderer(doc);
-            const imageData = renderer.composite();
+            const imageData = renderer.composite({ floating: false });
             const tmp = document.createElement('canvas');
             tmp.width = doc.width;
             tmp.height = doc.height;
@@ -463,7 +463,7 @@ export class FramePanel {
             }
         } else {
             const renderer = new Renderer(doc);
-            const imageData = renderer.composite();
+            const imageData = renderer.composite({ floating: false });
             const tmp = document.createElement('canvas');
             tmp.width = doc.width;
             tmp.height = doc.height;

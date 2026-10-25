@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- **A pending paste no longer shows up on every frame.** The floating selection lives on the document's one selection rather than on a frame, and `Renderer.composite()` drew it unconditionally — so a timeline thumbnail, which stands for a single frame, showed a paste that belonged to none of them, on all of them at once. `composite({floating: false})` leaves it out, and the three callers that represent one frame use it. This also kept a floating paste out of **frame export**, where it would otherwise have been baked into every PNG — the same trap as onion skinning, one overlay further down.
+
 ### Added
 - **The export can leave the tag out of the filename.** A tag and a filename answer to different readers: the tag labels the animation for whoever is editing it, while the filename has to be whatever the game already asks for. `pix8 export:frames --no-tags` drops the tag component from every name, so a document tagged `rotate` still exports the `circular_saw_1..3.png` a texture packer expects, and `--tag=OLD:NEW` renames one tag (empty `NEW` drops it) — `--tag=bounce:bottom`, `--tag=float:`. Two runs that would land on the same name are refused rather than interleaved into one numbered sequence, which for an atlas would mean two animations fused into one.
 
