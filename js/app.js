@@ -287,6 +287,9 @@ class App {
         const tab = this._tabs.find(t => t.id === this._activeTabId);
         if (!tab) return;
         this._endNudge();
+        // Every document swap passes through here first, while all components
+        // still point at the outgoing document.
+        this.framePanel.stopPlayback();
         tab.doc = this.doc;
         tab.undoStack = this.undoManager.undoStack;
         tab.redoStack = this.undoManager.redoStack;
@@ -377,6 +380,8 @@ class App {
         if (!confirm(`Close "${tab ? tab.name : 'tab'}"?`)) return;
         const idx = this._tabs.findIndex(t => t.id === id);
         if (idx < 0) return;
+        // Closing skips _saveTabState, so playback has to be halted here
+        if (id === this._activeTabId) this.framePanel.stopPlayback();
         this._tabs.splice(idx, 1);
         if (id === this._activeTabId) {
             const newIdx = Math.min(idx, this._tabs.length - 1);

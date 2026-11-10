@@ -662,6 +662,17 @@ export class FramePanel {
         this._playTimer = setTimeout(() => this._tick(), delay);
     }
 
+    /**
+     * Halt playback before the document is swapped out (tab switch/close, New,
+     * Open). The timer and the frame-index list belong to the document that
+     * was playing; left running, _tick carries on against the incoming one —
+     * with the Play buttons still disabled, or throwing once an index runs
+     * past the new document's frames.
+     */
+    stopPlayback() {
+        this._pause();
+    }
+
     _pause() {
         // Pause: stop playback but stay on current frame
         if (!this._playing) return;
