@@ -542,7 +542,11 @@ class App {
         // this._onPointerDown(e) — so replacing the method on the instance works.
         cv._onPointerDown = (e) => {
             const isFreeTransform = cv._activeTool && cv._activeTool.isTransformActive;
-            if (e.button === 0 && !cv._spaceDown && cv._activeTool && !isFreeTransform) {
+            // A second finger landing mid-stroke (or a pointer arriving during
+            // a pinch) must not re-snapshot: that would wipe the "before"
+            // state of the stroke already in flight.
+            const strokeInFlight = cv._pointerDown || cv.isGesturing();
+            if (e.button === 0 && !cv._spaceDown && cv._activeTool && !isFreeTransform && !strokeInFlight) {
                 this._endNudge();
                 this.undoManager.beginOperation();
             }
@@ -555,6 +559,23 @@ class App {
             if (!isFreeTransform) {
                 this.undoManager.endOperation();
             }
+        };
+
+        // A stroke interrupted by a pinch: finish it for the tool's sake, then
+        // revert what it drew instead of recording it. Free Transform keeps
+        // its own bracket, so there the stroke is simply committed.
+        cv._cancelStroke = (e) => {
+            const isFreeTransform = cv._activeTool && cv._activeTool.isTransformActive;
+            if (isFreeTransform) {
+                cv._onPointerUp(e);
+                return;
+            }
+            // The unwrapped release: the wrapped one would endOperation() and
+            // record the stroke before cancelOperation() could revert it.
+            origUp.call(cv, e);
+            this.undoManager.cancelOperation();
+            this.bus.emit('layer-changed');
+            this.bus.emit('selection-changed');
         };
     }
 

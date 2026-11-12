@@ -44,6 +44,10 @@ html, body {
     min-width: 600px;
     user-select: none;
     -webkit-user-select: none;
+    /* Touch: buttons respond on the first tap (no double-tap-to-zoom
+       delay) and a drag that reaches the edge never bounces the page. */
+    touch-action: manipulation;
+    overscroll-behavior: none;
 }
 
 #app {
@@ -119,6 +123,7 @@ html, body {
 #ruler-h,
 #ruler-v {
     display: none;
+    touch-action: none; /* guide drags start here */
 }
 
 .rulers-visible #ruler-corner {
@@ -148,6 +153,11 @@ html, body {
     position: relative;
     overflow: hidden;
     cursor: crosshair;
+    /* Pix8 owns every touch on the canvas. Without this the browser treats a
+       one-finger drag as a scroll and a pinch as a page zoom: it fires
+       pointercancel a few pixels into the stroke and the tool never sees
+       the rest of it. CanvasView handles pan/pinch itself. */
+    touch-action: none;
 }
 
 /* Right panel (layers + palette) */

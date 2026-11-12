@@ -43,6 +43,24 @@ export class UndoManager {
         return false;
     }
 
+    /**
+     * Throw away an in-progress operation and put the layers and selection
+     * back to how they were at beginOperation(). Used when a second finger
+     * lands right after a stroke starts: the user wanted to pinch, not draw.
+     * Nothing is pushed to the undo stack.
+     */
+    cancelOperation() {
+        if (this._snapshots === null) return;
+        for (const before of this._snapshots) {
+            const layer = this.doc.layers[before.index];
+            if (!layer) continue;
+            layer.restoreSnapshot(before.data, before.geometry);
+        }
+        this.doc.selection.restoreSnapshot(this._selectionSnapshot);
+        this._snapshots = null;
+        this._selectionSnapshot = null;
+    }
+
     /** Call after a tool operation ends (on pointer up). */
     endOperation() {
         if (this._snapshots === null) return;

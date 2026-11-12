@@ -65,6 +65,13 @@ export class CanvasView {
         this._lastScreenX = 0;
         this._lastScreenY = 0;
         this._lastMoveEvent = null;
+        // Touch: every finger currently on the canvas, by pointerId, with its
+        // last client position. One finger drives the active tool exactly like
+        // a mouse; the moment a second one lands the pair becomes a pan/pinch
+        // gesture (see _beginGesture) until fewer than two remain.
+        this._touches = new Map();
+        this._gesture = null;
+        this._strokeStartTime = 0;
         // Live modifier state. onHover is called from three places (a move,
         // a Shift press, and the tail of render()), and a tool's preview
         // depends on Shift/Ctrl — so every one of them has to pass the state as
@@ -166,8 +173,19 @@ export class CanvasView {
             this._onPointerUp(e);
             this.clearOverlay();
         });
+        // The browser took the pointer away (a system gesture, a palm, a
+        // browser-level pinch). Treat it as a release so the stroke and the
+        // undo bracket both close, instead of leaving _pointerDown stuck.
+        this.container.addEventListener('pointercancel', (e) => {
+            this._onPointerUp(e);
+            this.clearOverlay();
+        });
         this.container.addEventListener('wheel', (e) => this._onWheel(e), { passive: false });
         this.container.addEventListener('contextmenu', (e) => e.preventDefault());
+        // Safari ignores user-scalable=no; these are its proprietary pinch
+        // events, and cancelling them is what stops the page from zooming.
+        document.addEventListener('gesturestart', (e) => e.preventDefault());
+        document.addEventListener('gesturechange', (e) => e.preventDefault());
 
         document.addEventListener('keydown', (e) => {
             const tag = e.target.tagName;
@@ -247,7 +265,107 @@ export class CanvasView {
         return { x: docX, y: docY };
     }
 
+    /** True while two fingers are panning/zooming the view. */
+    isGesturing() {
+        return this._gesture !== null;
+    }
+
+    // Finish a stroke that a second finger interrupted. app.js replaces this
+    // on the instance to also revert what the stroke drew (the user meant to
+    // pinch, not to draw). `e` is a synthetic release at the first finger's
+    // last position, so brush-style tools don't draw a line to finger two.
+    _cancelStroke(e) {
+        this._onPointerUp(e);
+    }
+
+    _syntheticRelease(pointerId, pos, src) {
+        return {
+            // `synthetic` keeps _onPointerUp from dropping the finger out of
+            // _touches: it is still physically down and part of the gesture.
+            pointerId, pointerType: 'touch', synthetic: true,
+            clientX: pos.x, clientY: pos.y,
+            button: 0, buttons: 0,
+            shiftKey: src.shiftKey, ctrlKey: src.ctrlKey, altKey: src.altKey,
+        };
+    }
+
+    // Two fingers are down: stop whatever finger one was doing and start
+    // treating the pair as a pan/pinch. A stroke that is only a few hundred
+    // ms old is discarded (fingers of a pinch rarely land together); an older
+    // one is committed as if the finger had lifted.
+    _beginGesture(e) {
+        const STROKE_CANCEL_MS = 300;
+        if (this._pointerDown) {
+            const [firstId, firstPos] = this._touches.entries().next().value;
+            const release = this._syntheticRelease(firstId, firstPos, e);
+            if (performance.now() - this._strokeStartTime < STROKE_CANCEL_MS) {
+                this._cancelStroke(release);
+            } else {
+                this._onPointerUp(release);
+            }
+        }
+        this._isPanning = false;
+        this.clearOverlay();
+        this.container.setPointerCapture(e.pointerId);
+        this._gesture = {};
+        this._anchorGesture();
+    }
+
+    // (Re)anchor the gesture on the two fingers currently down: remember
+    // their distance, the zoom at that moment, and the document point under
+    // their midpoint, which is what stays under the fingers while they move.
+    _anchorGesture() {
+        const [a, b] = this._touches.values();
+        const rect = this.container.getBoundingClientRect();
+        const cx = (a.x + b.x) / 2 - rect.left;
+        const cy = (a.y + b.y) / 2 - rect.top;
+        this._gesture = {
+            startDist: Math.max(1, Math.hypot(b.x - a.x, b.y - a.y)),
+            startZoom: this.zoom,
+            docX: (cx - this.panX) / this.zoom,
+            docY: (cy - this.panY) / this.zoom,
+        };
+    }
+
+    _updateGesture() {
+        const g = this._gesture;
+        const [a, b] = this._touches.values();
+        const rect = this.container.getBoundingClientRect();
+        const cx = (a.x + b.x) / 2 - rect.left;
+        const cy = (a.y + b.y) / 2 - rect.top;
+        const dist = Math.hypot(b.x - a.x, b.y - a.y);
+
+        // Snap the continuous pinch scale to the nearest fixed zoom level,
+        // comparing in log space so 1->2 and 16->32 feel like the same move.
+        const target = g.startZoom * (dist / g.startDist);
+        let best = this.zoomIndex, bestD = Infinity;
+        for (let i = 0; i < ZOOM_LEVELS.length; i++) {
+            const d = Math.abs(Math.log(ZOOM_LEVELS[i]) - Math.log(target));
+            if (d < bestD) { bestD = d; best = i; }
+        }
+        const zoomChanged = best !== this.zoomIndex;
+        this.zoomIndex = best;
+        this.zoom = ZOOM_LEVELS[best];
+
+        this.panX = Math.round(cx - g.docX * this.zoom);
+        this.panY = Math.round(cy - g.docY * this.zoom);
+
+        if (zoomChanged) this.bus.emit('zoom-changed', this.zoom);
+        this.render();
+    }
+
     _onPointerDown(e) {
+        if (e.pointerType === 'touch') {
+            this._touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+            if (this._touches.size === 2) {
+                this._beginGesture(e);
+                return;
+            }
+            if (this._touches.size > 2) return;
+        } else if (this._gesture) {
+            return;
+        }
+
         // Middle mouse button = pan
         if (e.button === 1) {
             this._isPanning = true;
@@ -271,6 +389,7 @@ export class CanvasView {
 
         if ((e.button === 0 || e.button === 2) && this._activeTool) {
             this._pointerDown = true;
+            this._strokeStartTime = performance.now();
             const pos = this.screenToDoc(e.clientX, e.clientY);
             // Warn if clicking outside a fixed-size layer
             const layer = this.doc.getActiveLayer();
@@ -288,6 +407,16 @@ export class CanvasView {
     }
 
     _onPointerMove(e) {
+        if (e.pointerType === 'touch' && this._touches.has(e.pointerId)) {
+            this._touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+            if (this._gesture) {
+                this._updateGesture();
+                return;
+            }
+        } else if (this._gesture) {
+            return;
+        }
+
         const pos = this.screenToDoc(e.clientX, e.clientY);
         this._lastDocX = pos.x;
         this._lastDocY = pos.y;
@@ -344,6 +473,20 @@ export class CanvasView {
     }
 
     _onPointerUp(e) {
+        if (e.pointerType === 'touch' && !e.synthetic) {
+            this._touches.delete(e.pointerId);
+            if (this._gesture) {
+                // Keep panning with whichever two fingers remain; the finger
+                // that is left over after a pinch just hovers (its stroke was
+                // already closed in _beginGesture) until it lifts.
+                if (this._touches.size >= 2) this._anchorGesture();
+                else this._gesture = null;
+                return;
+            }
+        } else if (this._gesture) {
+            return;
+        }
+
         if (this._isPanning) {
             this._isPanning = false;
             this.container.style.cursor = this._activeTool ? this._activeTool.getCursor() : 'crosshair';
