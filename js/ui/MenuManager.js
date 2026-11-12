@@ -224,6 +224,9 @@ export function _showViewMenu() {
         { label: 'Show Rulers', checked: cv.rulersVisible, shortcut: 'Alt+R', action: () => {
             cv.setRulersVisible(!cv.rulersVisible);
         }},
+        { label: 'Touch Controls', checked: this.touchBar.visible, action: () => {
+            this.touchBar.toggle();
+        }},
         '-',
         { label: 'Show Guides', checked: cv.guides.visible, shortcut: 'Ctrl+;', action: () => {
             cv.guides.visible = !cv.guides.visible; cv.render();

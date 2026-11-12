@@ -73,6 +73,13 @@ export class CanvasView {
         this._gesture = null;
         this._strokeStartTime = 0;
         this._lastPointerType = 'mouse';
+        // Touch UI state (TouchBar.js). Sticky modifiers stand in for keys a
+        // finger cannot hold; they are OR-ed into every event the tools see.
+        // Pen mode makes a single finger pan instead of draw, so a resting
+        // palm never leaves marks while a stylus is in use.
+        this.stickyModifiers = { shiftKey: false, ctrlKey: false, altKey: false };
+        this.penMode = false;
+        this._penEraserRestore = null;
         // Live modifier state. onHover is called from three places (a move,
         // a Shift press, and the tail of render()), and a tool's preview
         // depends on Shift/Ctrl — so every one of them has to pass the state as
@@ -105,9 +112,47 @@ export class CanvasView {
     }
 
     _trackModifiers(e) {
-        this._modifiers.shiftKey = e.shiftKey;
-        this._modifiers.ctrlKey = e.ctrlKey;
-        this._modifiers.altKey = e.altKey;
+        const st = this.stickyModifiers;
+        this._modifiers.shiftKey = e.shiftKey || st.shiftKey;
+        this._modifiers.ctrlKey = e.ctrlKey || st.ctrlKey;
+        this._modifiers.altKey = e.altKey || st.altKey;
+    }
+
+    setStickyModifier(key, on) {
+        if (!(key in this.stickyModifiers) || this.stickyModifiers[key] === on) return;
+        this.stickyModifiers[key] = on;
+        this.bus.emit('sticky-modifiers-changed', this.stickyModifiers);
+        // Same as pressing/releasing the real key: refresh the preview.
+        if (this._lastMoveEvent) {
+            this._trackModifiers(this._lastMoveEvent);
+            this._replayLastMove(this._applySticky(this._lastMoveEvent));
+        }
+    }
+
+    clearStickyModifiers() {
+        for (const key of Object.keys(this.stickyModifiers)) this.setStickyModifier(key, false);
+    }
+
+    setPenMode(on) {
+        if (this.penMode === on) return;
+        this.penMode = on;
+        this.bus.emit('pen-mode-changed', on);
+    }
+
+    // Tools read e.shiftKey/ctrlKey/altKey straight off the event, so hand
+    // them a view of it with the latched modifiers folded in. A Proxy rather
+    // than a copy: PointerEvent getters only work on the real event, and the
+    // real one is what tools must keep seeing for everything else.
+    _applySticky(e) {
+        const st = this.stickyModifiers;
+        if (!st.shiftKey && !st.ctrlKey && !st.altKey) return e;
+        return new Proxy(e, {
+            get(target, prop) {
+                if (prop in st && st[prop]) return true;
+                const v = target[prop];
+                return typeof v === 'function' ? v.bind(target) : v;
+            },
+        });
     }
 
     // Re-dispatch the cursor's last position with fresh modifier state, so
@@ -373,8 +418,11 @@ export class CanvasView {
         // wherever the previous touch lifted.
         this._recordPosition(e);
 
+        // Pen mode: a lone finger pans, like the middle mouse button.
+        const penModePan = this.penMode && e.pointerType === 'touch';
+
         // Middle mouse button = pan
-        if (e.button === 1) {
+        if (e.button === 1 || penModePan) {
             this._isPanning = true;
             this._panStartX = e.clientX;
             this._panStartY = e.clientY;
@@ -386,7 +434,7 @@ export class CanvasView {
         }
 
         // Shift+click near a guide = move guide
-        if (e.button === 0 && e.shiftKey && this.guides.visible) {
+        if (e.button === 0 && (e.shiftKey || this.stickyModifiers.shiftKey) && this.guides.visible) {
             const hit = this.guides.hitTest(e.clientX, e.clientY);
             if (hit) {
                 this.guides.startMove(hit);
@@ -394,7 +442,19 @@ export class CanvasView {
             }
         }
 
-        if ((e.button === 0 || e.button === 2) && this._activeTool) {
+        // A stylus eraser tip arrives as button 5 (buttons bit 32). Swap to
+        // the Eraser for this stroke and back again on release.
+        if (e.pointerType === 'pen' && (e.buttons & 32) && this._activeTool &&
+            this._activeTool.name !== 'Eraser') {
+            const prev = this._activeTool.name;
+            this.bus.emit('switch-tool', 'Eraser');
+            if (this._activeTool && this._activeTool.name === 'Eraser') {
+                this._penEraserRestore = prev;
+            }
+        }
+
+        if ((e.button === 0 || e.button === 2 || e.button === 5) && this._activeTool) {
+            e = this._applySticky(e);
             this._pointerDown = true;
             this._strokeStartTime = performance.now();
             const pos = this.screenToDoc(e.clientX, e.clientY);
@@ -424,6 +484,7 @@ export class CanvasView {
             return;
         }
 
+        e = this._applySticky(e);
         const pos = this._recordPosition(e);
 
         // Update status bar position
@@ -496,12 +557,18 @@ export class CanvasView {
         }
 
         if (this._pointerDown && this._activeTool) {
+            e = this._applySticky(e);
             const pos = this.screenToDoc(e.clientX, e.clientY);
             this._activeTool.onPointerUp(pos.x, pos.y, e);
             this._pointerDown = false;
             this._updateCursor();
             this.render();
             this.bus.emit('layer-changed');
+            if (this._penEraserRestore) {
+                const name = this._penEraserRestore;
+                this._penEraserRestore = null;
+                this.bus.emit('switch-tool', name);
+            }
         }
     }
 

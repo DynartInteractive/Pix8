@@ -9,6 +9,7 @@ import { ColorSelector } from './ui/ColorSelector.js';
 import { PalettePanel } from './ui/PalettePanel.js';
 import { LayersPanel } from './ui/LayersPanel.js';
 import { TabBar } from './ui/TabBar.js';
+import { TouchBar } from './ui/TouchBar.js';
 import { FramePanel } from './ui/FramePanel.js';
 import Dialog from './ui/Dialog.js';
 import { INPUT_STYLE } from './ui/dialogHelpers.js';
@@ -216,6 +217,17 @@ class App {
 
         // Menu bar
         this._setupMenuBar();
+
+        // Touch controls in the tab line (sticky modifiers, undo/redo, pen mode)
+        this.touchBar = new TouchBar(this.bus, this.canvasView);
+        this.bus.on('undo-request', () => {
+            if (this._freeTransformTool && this._freeTransformTool.isTransformActive) return;
+            this.undoManager.undo();
+        });
+        this.bus.on('redo-request', () => {
+            if (this._freeTransformTool && this._freeTransformTool.isTransformActive) return;
+            this.undoManager.redo();
+        });
 
         // Tab bar
         this.tabBar = new TabBar(this.bus);
@@ -546,7 +558,10 @@ class App {
             // a pinch) must not re-snapshot: that would wipe the "before"
             // state of the stroke already in flight.
             const strokeInFlight = cv._pointerDown || cv.isGesturing();
-            if (e.button === 0 && !cv._spaceDown && cv._activeTool && !isFreeTransform && !strokeInFlight) {
+            // Any drawing button: left, right (BG color, pen barrel) or a
+            // stylus eraser tip (5). Only the middle button never draws.
+            const draws = e.button !== 1 && !(cv.penMode && e.pointerType === 'touch');
+            if (draws && !cv._spaceDown && cv._activeTool && !isFreeTransform && !strokeInFlight) {
                 this._endNudge();
                 this.undoManager.beginOperation();
             }

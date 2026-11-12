@@ -4,8 +4,65 @@
     background: var(--bg-primary);
     border-bottom: 1px solid var(--border);
     height: 28px;
+    overflow: hidden;
+}
+
+#tab-list {
+    display: flex;
+    flex: 1;
+    min-width: 0;
     overflow-x: auto;
     overflow-y: hidden;
+}
+
+/* Touch controls (TouchBar.js) at the right end of the tab line */
+#touch-bar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 6px;
+    border-left: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+#touch-bar[hidden] {
+    display: none;
+}
+
+.touch-btn {
+    height: 22px;
+    min-width: 44px;
+    padding: 0 8px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--text);
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.touch-btn.touch-btn-icon {
+    min-width: 32px;
+    font-size: 16px;
+    padding: 0 4px;
+}
+
+.touch-btn:hover {
+    background: var(--bg-hover);
+}
+
+.touch-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--text-bright);
+}
+
+.touch-sep {
+    width: 1px;
+    height: 18px;
+    background: var(--border);
+    margin: 0 2px;
 }
 
 .tab {

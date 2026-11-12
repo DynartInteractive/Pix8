@@ -1,7 +1,7 @@
 export class TabBar {
     constructor(bus) {
         this.bus = bus;
-        this.container = document.getElementById('tab-bar');
+        this.container = document.getElementById('tab-list');
         this._lastClickTime = 0;
         this._lastClickId = null;
     }
