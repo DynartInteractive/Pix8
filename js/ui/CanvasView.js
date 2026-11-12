@@ -72,6 +72,7 @@ export class CanvasView {
         this._touches = new Map();
         this._gesture = null;
         this._strokeStartTime = 0;
+        this._lastPointerType = 'mouse';
         // Live modifier state. onHover is called from three places (a move,
         // a Shift press, and the tail of render()), and a tool's preview
         // depends on Shift/Ctrl — so every one of them has to pass the state as
@@ -366,6 +367,12 @@ export class CanvasView {
             return;
         }
 
+        // A mouse always moves before it clicks, so the "last position" is
+        // fresh by the time a tool asks for it. A finger lands without any
+        // move, so refresh it here or hit tests (resize handles) run against
+        // wherever the previous touch lifted.
+        this._recordPosition(e);
+
         // Middle mouse button = pan
         if (e.button === 1) {
             this._isPanning = true;
@@ -417,12 +424,7 @@ export class CanvasView {
             return;
         }
 
-        const pos = this.screenToDoc(e.clientX, e.clientY);
-        this._lastDocX = pos.x;
-        this._lastDocY = pos.y;
-        const rect = this.container.getBoundingClientRect();
-        this._lastScreenX = e.clientX - rect.left;
-        this._lastScreenY = e.clientY - rect.top;
+        const pos = this._recordPosition(e);
 
         // Update status bar position
         this.bus.emit('cursor-move', pos);
@@ -501,6 +503,17 @@ export class CanvasView {
             this.render();
             this.bus.emit('layer-changed');
         }
+    }
+
+    _recordPosition(e) {
+        const pos = this.screenToDoc(e.clientX, e.clientY);
+        this._lastDocX = pos.x;
+        this._lastDocY = pos.y;
+        const rect = this.container.getBoundingClientRect();
+        this._lastScreenX = e.clientX - rect.left;
+        this._lastScreenY = e.clientY - rect.top;
+        this._lastPointerType = e.pointerType || 'mouse';
+        return pos;
     }
 
     _onWheel(e) {
@@ -964,7 +977,8 @@ export class CanvasView {
 
         const screenX = this._lastScreenX;
         const screenY = this._lastScreenY;
-        const halfSize = 5;
+        // A fingertip covers far more than a 7px handle; give it a wider box.
+        const halfSize = this._lastPointerType === 'touch' ? 14 : 5;
 
         for (const h of handles) {
             if (Math.abs(screenX - h.x) <= halfSize && Math.abs(screenY - h.y) <= halfSize) {
