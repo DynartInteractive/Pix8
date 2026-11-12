@@ -1,6 +1,6 @@
 {
   "name": "pix8",
-  "version": "1.12.0",
+  "version": "1.13.0",
   "description": "256-color indexed pixel art editor",
   "main": "electron-main.js",
   "bin": {
@@ -19,7 +19,11 @@
     "dist": "electron-builder",
     "dist:linux": "electron-builder --linux",
     "dist:win": "electron-builder --win",
-    "dist:mac": "electron-builder --mac"
+    "dist:mac": "electron-builder --mac",
+    "build:www": "node tools/build-www.mjs",
+    "cap:sync": "npm run build && npm run build:www && cap sync android",
+    "android": "npm run cap:sync && cap open android",
+    "android:apk": "npm run cap:sync && cd android && ./gradlew assembleDebug"
   },
   "build": {
     "appId": "net.dynart.pix8",
@@ -61,6 +65,7 @@
     }
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.6.2",
     "electron": "^35.0.0",
     "electron-builder": "^26.0.0",
     "serve": "^14.2.6",
@@ -68,6 +73,10 @@
     "webpack-cli": "^7.0.2"
   },
   "dependencies": {
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/core": "^8.6.2",
+    "@capacitor/filesystem": "^8.1.5",
     "jszip": "^3.10.1"
   }
 }

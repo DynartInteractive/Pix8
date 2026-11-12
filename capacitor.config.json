@@ -1,0 +1,10 @@
+{
+    "appId": "net.dynart.pix8",
+    "appName": "Pix8",
+    "webDir": "www",
+    "backgroundColor": "#1e1e1e",
+    "android": {
+        "allowMixedContent": false,
+        "backgroundColor": "#1e1e1e"
+    }
+}

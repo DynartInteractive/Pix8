@@ -210,6 +210,10 @@ class App {
 
         // Text tool dialog
         this.bus.on('show-toast', (msg) => this._showToast(msg));
+        // Android build: saves go straight to Documents/Pix8 with no dialog,
+        // so the toast is the only confirmation the user gets.
+        window.addEventListener('pix8-file-saved', (e) => this._showToast('Saved to ' + e.detail.path, 2500));
+        window.addEventListener('pix8-file-save-failed', (e) => this._showToast('Save failed: ' + e.detail.error.message, 3000));
         this.bus.on('open-text-dialog', (opts) => this._showTextDialog(opts));
 
         // Keyboard shortcuts

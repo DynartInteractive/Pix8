@@ -56,6 +56,14 @@ npm run electron              # run as desktop app
 DEVTOOLS=1 npm run electron   # run with DevTools (F12 to toggle)
 ```
 
+Android app (Capacitor):
+```
+npm run cap:sync      # build + tools/build-www.mjs (assembles www/) + cap sync android
+npm run android       # cap:sync, then open in Android Studio
+npm run android:apk   # cap:sync, then gradle assembleDebug
+```
+`www/` is generated and git-ignored; `android/` is committed (Capacitor convention) except its build outputs and the copied web assets. The native seam is `window.capacitorAPI`, set by `js/capacitor-bridge.js` (its own webpack entry, `dist/capacitor-bridge.js`, injected into `www/index.html` only). It mirrors `window.electronAPI`: `downloadBlob()` in `io.js` routes saves to `Documents/Pix8/<name>` via `@capacitor/filesystem` (no save dialog; a `pix8-file-saved` window event drives the toast), `pickerAccept()` drops the file-input `accept` list because the WebView cannot map `.pix8`/`.pcx` to MIME types, and the Android back button closes an open dialog or asks before exiting. The Capacitor CLI needs Node 22+.
+
 ## Testing
 
 No automated test suite. Manual testing: open in browser, verify tools, zoom, layers, palette editing, file import/export (especially 8-bit BMP and PCX files), animation playback, GIF/SPX/ICO export, fixed-size layer behavior.

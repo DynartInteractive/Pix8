@@ -1,9 +1,14 @@
 const path = require('path');
 
 module.exports = {
-    entry: './js/app.js',
+    entry: {
+        bundle: './js/app.js',
+        // Native seam for the Android (Capacitor) build; loaded only by
+        // www/index.html, which tools/build-www.mjs assembles.
+        'capacitor-bridge': './js/capacitor-bridge.js',
+    },
     output: {
-        filename: 'bundle.js',
+        filename: '[name].js',
         path: path.resolve(__dirname, 'dist'),
     },
     mode: 'production',

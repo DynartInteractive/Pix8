@@ -4,7 +4,7 @@ import {
     savePix8, loadPix8,
     exportBMP, importBMP,
     exportPCX, importPCX,
-    exportPNG, exportLayersPNGZip, exportFramesPNGZip, exportICO, getValidICOLayers, downloadBlob
+    exportPNG, exportLayersPNGZip, exportFramesPNGZip, exportICO, getValidICOLayers, downloadBlob, pickerAccept
 } from './util/io.js';
 import { exportGIF } from './util/gif.js';
 import { exportSPXZip } from './util/spx.js';
@@ -32,7 +32,7 @@ export function _openFile() {
     }
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.pix8,.bmp,.pcx,.png,.jpg,.jpeg,.gif,.webp';
+    input.accept = pickerAccept('.pix8,.bmp,.pcx,.png,.jpg,.jpeg,.gif,.webp');
     input.addEventListener('change', () => {
         const file = input.files[0];
         if (!file) return;
@@ -351,7 +351,7 @@ export function _showTransparencyDialog(callback) {
 export function _importFile() {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.bmp,.pcx';
+    input.accept = pickerAccept('.bmp,.pcx');
     input.addEventListener('change', () => {
         if (!input.files[0]) return;
         this._parseImageFile(input.files[0], (newDoc) => {
@@ -364,7 +364,7 @@ export function _importFile() {
 export function _importAsLayer() {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.bmp,.pcx';
+    input.accept = pickerAccept('.bmp,.pcx');
     input.addEventListener('change', () => {
         if (!input.files[0]) return;
         this._parseImageFile(input.files[0], (tempDoc, file) => {
@@ -391,7 +391,7 @@ export function _importAsLayer() {
 export function _importPalette() {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.bmp,.pcx';
+    input.accept = pickerAccept('.bmp,.pcx');
     input.addEventListener('change', () => {
         if (!input.files[0]) return;
         this._parseImageFile(input.files[0], (tempDoc) => {

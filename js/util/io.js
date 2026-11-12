@@ -721,7 +721,26 @@ export function exportICO(doc, layerIndices) {
 
 // ─── File download helper ───────────────────────────────────────────────
 
+/**
+ * The `accept` list for a file input. The Android WebView turns extension
+ * lists into MIME filters and knows nothing about .pix8 or .pcx, which can
+ * leave those files greyed out in the picker, so the app build shows all.
+ */
+export function pickerAccept(extensions) {
+    return window.capacitorAPI ? '' : extensions;
+}
+
 export async function downloadBlob(blob, filename) {
+    if (window.capacitorAPI) {
+        const arrayBuffer = await blob.arrayBuffer();
+        try {
+            const path = await window.capacitorAPI.saveFile(filename, arrayBuffer);
+            window.dispatchEvent(new CustomEvent('pix8-file-saved', { detail: { path } }));
+        } catch (err) {
+            window.dispatchEvent(new CustomEvent('pix8-file-save-failed', { detail: { error: err } }));
+        }
+        return;
+    }
     if (window.electronAPI) {
         const ext = filename.split('.').pop().toLowerCase();
         const filters = [{ name: ext.toUpperCase() + ' files', extensions: [ext] }];

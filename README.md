@@ -83,6 +83,18 @@ npm run dist:win              # Build Windows installer (unsigned)
 npm run dist:mac              # Build macOS dmg
 ```
 
+### Android App (Capacitor)
+
+The same web build runs as a native Android app via [Capacitor](https://capacitorjs.com), fully offline. Requires Node 22+, a JDK 17+, and the Android SDK (Android Studio is the easiest way to get both).
+
+```bash
+npm run cap:sync      # build, assemble www/, copy into android/
+npm run android       # ...and open the project in Android Studio
+npm run android:apk   # ...and build android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+Install the debug APK on the tablet with `adb install -r app-debug.apk`, or copy the file over and open it. Saved and exported files land in `Documents/Pix8/`. For a release build, sign it in Android Studio (Build > Generate Signed App Bundle / APK).
+
 #### Windows Code Signing (Azure Trusted Signing)
 
 To produce a signed Windows installer, install [AzureSignTool](https://github.com/vcsjones/AzureSignTool) and set the environment variables before building:

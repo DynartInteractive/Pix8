@@ -81,7 +81,8 @@ export class TouchBar {
 
         // Full screen works over plain http, unlike an installed web app, so
         // it is the quick way to lose the browser chrome on a tablet.
-        if (document.fullscreenEnabled) {
+        // The Android app already runs without a status bar (styles.xml).
+        if (document.fullscreenEnabled && !window.capacitorAPI) {
             c.appendChild(this._separator());
             this._fsBtn = this._button('\u26F6', 'Toggle full screen');
             this._fsBtn.classList.add('touch-btn-icon');
