@@ -4,7 +4,7 @@ import {
     savePix8, loadPix8,
     exportBMP, importBMP,
     exportPCX, importPCX,
-    exportPNG, exportLayersPNGZip, exportFramesPNGZip, exportICO, getValidICOLayers, downloadBlob, pickerAccept
+    exportPNG, exportLayersPNGZip, exportFramesPNGZip, exportICO, getValidICOLayers, downloadBlob, pickFile
 } from './util/io.js';
 import { exportGIF } from './util/gif.js';
 import { exportSPXZip } from './util/spx.js';
@@ -25,47 +25,41 @@ export function _saveProject() {
     downloadBlob(blob, filename);
 }
 
-export function _openFile() {
+export async function _openFile() {
     if (window.electronAPI) {
         this._openFileElectron();
         return;
     }
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = pickerAccept('.pix8,.bmp,.pcx,.png,.jpg,.jpeg,.gif,.webp');
-    input.addEventListener('change', () => {
-        const file = input.files[0];
-        if (!file) return;
-        const ext = file.name.split('.').pop().toLowerCase();
+    const file = await pickFile('.pix8,.bmp,.pcx,.png,.jpg,.jpeg,.gif,.webp');
+    if (!file) return;
+    const ext = file.name.split('.').pop().toLowerCase();
 
-        // Truecolor image formats — decode via canvas, then quantize
-        if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext)) {
-            this._openTruecolorFile(file);
-            return;
-        }
+    // Truecolor image formats — decode via canvas, then quantize
+    if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext)) {
+        this._openTruecolorFile(file);
+        return;
+    }
 
-        const reader = new FileReader();
-        reader.onload = () => {
-            try {
-                let newDoc;
-                if (ext === 'pix8') {
-                    newDoc = loadPix8(reader.result);
-                } else if (ext === 'bmp') {
-                    newDoc = importBMP(reader.result);
-                } else if (ext === 'pcx') {
-                    newDoc = importPCX(reader.result);
-                } else {
-                    this._showToast('Unsupported file format');
-                    return;
-                }
-                this._openInNewTab(file.name, newDoc);
-            } catch (err) {
-                this._showToast('Error loading file: ' + err.message, 3000);
+    const reader = new FileReader();
+    reader.onload = () => {
+        try {
+            let newDoc;
+            if (ext === 'pix8') {
+                newDoc = loadPix8(reader.result);
+            } else if (ext === 'bmp') {
+                newDoc = importBMP(reader.result);
+            } else if (ext === 'pcx') {
+                newDoc = importPCX(reader.result);
+            } else {
+                this._showToast('Unsupported file format');
+                return;
             }
-        };
-        reader.readAsArrayBuffer(file);
-    });
-    input.click();
+            this._openInNewTab(file.name, newDoc);
+        } catch (err) {
+            this._showToast('Error loading file: ' + err.message, 3000);
+        }
+    };
+    reader.readAsArrayBuffer(file);
 }
 
 export async function _openFileElectron() {
@@ -349,25 +343,18 @@ export function _showTransparencyDialog(callback) {
 }
 
 export function _importFile() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = pickerAccept('.bmp,.pcx');
-    input.addEventListener('change', () => {
-        if (!input.files[0]) return;
-        this._parseImageFile(input.files[0], (newDoc) => {
+    pickFile('.bmp,.pcx').then((file) => {
+        if (!file) return;
+        this._parseImageFile(file, (newDoc) => {
             this._replaceDocument(newDoc);
         });
     });
-    input.click();
 }
 
 export function _importAsLayer() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = pickerAccept('.bmp,.pcx');
-    input.addEventListener('change', () => {
-        if (!input.files[0]) return;
-        this._parseImageFile(input.files[0], (tempDoc, file) => {
+    pickFile('.bmp,.pcx').then((file) => {
+        if (!file) return;
+        this._parseImageFile(file, (tempDoc, file) => {
             const before = this._snapshotLayerMeta();
             if (this.doc.animationEnabled) this.doc.saveCurrentFrame();
             const importedLayer = tempDoc.getActiveLayer();
@@ -385,16 +372,12 @@ export function _importAsLayer() {
             this.bus.emit('document-changed');
         });
     });
-    input.click();
 }
 
 export function _importPalette() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = pickerAccept('.bmp,.pcx');
-    input.addEventListener('change', () => {
-        if (!input.files[0]) return;
-        this._parseImageFile(input.files[0], (tempDoc) => {
+    pickFile('.bmp,.pcx').then((file) => {
+        if (!file) return;
+        this._parseImageFile(file, (tempDoc) => {
             this.doc.palette.import(tempDoc.palette.export());
             this.bus.emit('palette-changed');
             this.bus.emit('fg-color-changed');
@@ -402,7 +385,6 @@ export function _importPalette() {
             this.bus.emit('document-changed');
         }, { askTransparency: false });
     });
-    input.click();
 }
 
 export function _showExportDialog() {

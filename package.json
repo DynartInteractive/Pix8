@@ -1,6 +1,6 @@
 {
   "name": "pix8",
-  "version": "1.13.0",
+  "version": "1.14.0",
   "description": "256-color indexed pixel art editor",
   "main": "electron-main.js",
   "bin": {
@@ -76,7 +76,6 @@
     "@capacitor/android": "^8.6.2",
     "@capacitor/app": "^8.1.2",
     "@capacitor/core": "^8.6.2",
-    "@capacitor/filesystem": "^8.1.5",
     "jszip": "^3.10.1"
   }
 }

@@ -722,21 +722,31 @@ export function exportICO(doc, layerIndices) {
 // ─── File download helper ───────────────────────────────────────────────
 
 /**
- * The `accept` list for a file input. The Android WebView turns extension
- * lists into MIME filters and knows nothing about .pix8 or .pcx, which can
- * leave those files greyed out in the picker, so the app build shows all.
+ * Ask the user for one file. Resolves to a File, or null when they cancel.
+ * In the browser (and Electron, for the import paths) this is a hidden file
+ * input; the Android app uses its native Open dialog instead, because the
+ * WebView's picker cannot map .pix8/.pcx to MIME types and hides them.
  */
-export function pickerAccept(extensions) {
-    return window.capacitorAPI ? '' : extensions;
+export function pickFile(accept) {
+    if (window.capacitorAPI) return window.capacitorAPI.pickFile();
+    return new Promise((resolve) => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = accept;
+        input.addEventListener('change', () => resolve(input.files[0] || null));
+        input.addEventListener('cancel', () => resolve(null));
+        input.click();
+    });
 }
 
 export async function downloadBlob(blob, filename) {
     if (window.capacitorAPI) {
         const arrayBuffer = await blob.arrayBuffer();
         try {
-            const path = await window.capacitorAPI.saveFile(filename, arrayBuffer);
-            window.dispatchEvent(new CustomEvent('pix8-file-saved', { detail: { path } }));
+            const name = await window.capacitorAPI.saveFile(filename, arrayBuffer);
+            window.dispatchEvent(new CustomEvent('pix8-file-saved', { detail: { name } }));
         } catch (err) {
+            if (err && err.cancelled) return;
             window.dispatchEvent(new CustomEvent('pix8-file-save-failed', { detail: { error: err } }));
         }
         return;

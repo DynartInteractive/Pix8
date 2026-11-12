@@ -95,7 +95,7 @@ npm run android:apk   # ...and build android/app/build/outputs/apk/debug/app-deb
 
 The Gradle wrapper needs `JAVA_HOME`; Android Studio's bundled JDK works, e.g. `export JAVA_HOME=~/Apps/android-studio/jbr` (put it in your shell profile). The SDK path goes in `android/local.properties` as `sdk.dir=/home/you/Android/Sdk`; Android Studio writes that file when it opens the project.
 
-Install the debug APK on the tablet with `adb install -r app-debug.apk`, or copy the file over and open it. Saved and exported files land in `Documents/Pix8/`. For a release build, sign it in Android Studio (Build > Generate Signed App Bundle / APK).
+Install the debug APK on the tablet with `adb install -r app-debug.apk`, or copy the file over and open it. Save and Open use the system file dialogs, starting in `Documents/Pix8/`. For a release build, sign it in Android Studio (Build > Generate Signed App Bundle / APK).
 
 #### Windows Code Signing (Azure Trusted Signing)
 

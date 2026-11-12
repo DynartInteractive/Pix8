@@ -4,11 +4,11 @@
  * Electron builds never see it. It plays the role electron-preload.js plays
  * on the desktop: window.capacitorAPI is the seam io.js and app.js check.
  */
-import { Capacitor } from '@capacitor/core';
-import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 import { App } from '@capacitor/app';
 
-const SAVE_FOLDER = 'Pix8';
+// Native Save As / Open dialogs: android/app/src/main/java/net/dynart/pix8/FilesPlugin.java
+const Pix8Files = registerPlugin('Pix8Files');
 
 function toBase64(arrayBuffer) {
     const bytes = new Uint8Array(arrayBuffer);
@@ -20,33 +20,48 @@ function toBase64(arrayBuffer) {
     return btoa(binary);
 }
 
-async function ensurePermission() {
-    let status = await Filesystem.checkPermissions();
-    if (status.publicStorage !== 'granted') {
-        status = await Filesystem.requestPermissions();
-    }
-    return status.publicStorage === 'granted';
+function fromBase64(b64) {
+    const binary = atob(b64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes;
+}
+
+function isCancel(err) {
+    return err && err.code === 'CANCELLED';
 }
 
 /**
- * Write a file into the public Documents/Pix8 folder, visible to the Files
- * app and other programs. There is no system "Save as" dialog here; the
- * name the app chose is used and an existing file of that name is replaced
- * (Android lets us overwrite files this app created).
- * Resolves to the user-facing path for a toast.
+ * System "Save as" dialog, opening in Documents/Pix8 with the suggested
+ * name. Resolves to the name the user settled on. Rejects with
+ * { cancelled: true } when they back out.
  */
 async function saveFile(filename, arrayBuffer) {
-    if (!(await ensurePermission())) {
-        throw new Error('Storage permission denied');
+    try {
+        // Two steps: the bytes must not ride along on the call that opens the
+        // dialog (see FilesPlugin.pendingData).
+        await Pix8Files.stage({ data: toBase64(arrayBuffer) });
+        const result = await Pix8Files.saveAs({ name: filename });
+        return result.name;
+    } catch (err) {
+        if (isCancel(err)) {
+            const e = new Error('Save cancelled');
+            e.cancelled = true;
+            throw e;
+        }
+        throw err;
     }
-    const path = `${SAVE_FOLDER}/${filename}`;
-    await Filesystem.writeFile({
-        path,
-        data: toBase64(arrayBuffer),
-        directory: Directory.Documents,
-        recursive: true,
-    });
-    return `Documents/${path}`;
+}
+
+/** System "Open" dialog. Resolves to a File, or null when cancelled. */
+async function pickFile() {
+    try {
+        const result = await Pix8Files.open();
+        return new File([fromBase64(result.data)], result.name);
+    } catch (err) {
+        if (isCancel(err)) return null;
+        throw err;
+    }
 }
 
 // Android back button: close an open dialog first; otherwise ask before
@@ -67,4 +82,5 @@ App.addListener('backButton', () => {
 window.capacitorAPI = {
     platform: Capacitor.getPlatform(),
     saveFile,
+    pickFile,
 };

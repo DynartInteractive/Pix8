@@ -1,4 +1,4 @@
-import { exportPAL, importPAL, importBMP, importPCX, downloadBlob, pickerAccept } from '../util/io.js';
+import { exportPAL, importPAL, importBMP, importPCX, downloadBlob, pickFile } from '../util/io.js';
 
 export class PaletteEditDialog {
     constructor(doc, bus, undoManager) {
@@ -1324,12 +1324,8 @@ export class PaletteEditDialog {
     // ── Load / Save Palette ──────────────────────────────────────────
 
     _loadPalette() {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = pickerAccept('.pal,.bmp,.pcx');
-        input.addEventListener('change', () => {
-            if (!input.files[0]) return;
-            const file = input.files[0];
+        pickFile('.pal,.bmp,.pcx').then((file) => {
+            if (!file) return;
             const reader = new FileReader();
             reader.onload = () => {
                 const bytes = new Uint8Array(reader.result);
@@ -1357,7 +1353,6 @@ export class PaletteEditDialog {
             };
             reader.readAsArrayBuffer(file);
         });
-        input.click();
     }
 
     _savePalette() {
