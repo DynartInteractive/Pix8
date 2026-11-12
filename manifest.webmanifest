@@ -1,0 +1,16 @@
+{
+    "name": "Pix8 - Indexed Color Pixel Art Editor",
+    "short_name": "Pix8",
+    "description": "A 256-color indexed pixel art editor for VGA-era workflows.",
+    "start_url": "./",
+    "scope": "./",
+    "display": "fullscreen",
+    "display_override": ["fullscreen", "standalone"],
+    "orientation": "landscape",
+    "background_color": "#1e1e1e",
+    "theme_color": "#1e1e1e",
+    "icons": [
+        { "src": "images/icon-app-256.png", "sizes": "256x256", "type": "image/png" },
+        { "src": "images/icon-app.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    ]
+}

@@ -324,3 +324,26 @@ input[type="number"]::-webkit-inner-spin-button {
 .icon-btn:disabled .panel-icon {
     opacity: 0.4;
 }
+
+/* Touch screens: slightly larger targets for the small panel buttons.
+   The tool buttons are already 36px; the fixed layout is left alone. */
+@media (pointer: coarse) {
+    .icon-btn {
+        width: 28px;
+        height: 28px;
+    }
+    .icon-btn .panel-icon {
+        width: 16px;
+        height: 16px;
+    }
+    .layer-item {
+        padding: 7px 6px;
+    }
+    .tab {
+        padding: 0 14px;
+    }
+    .tab-close {
+        font-size: 18px;
+        padding: 4px;
+    }
+}

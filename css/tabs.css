@@ -21,7 +21,6 @@
     align-items: center;
     gap: 4px;
     padding: 0 6px;
-    border-left: 1px solid var(--border);
     flex-shrink: 0;
 }
 

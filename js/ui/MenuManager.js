@@ -1,4 +1,5 @@
 import { ZOOM_LEVELS, ASSET_VERSION, withVersion } from '../constants.js';
+import { TouchBar } from './TouchBar.js';
 import { Brush } from '../model/Brush.js';
 import { ROW_STYLE } from './dialogHelpers.js';
 import Dialog from './Dialog.js';
@@ -227,6 +228,9 @@ export function _showViewMenu() {
         { label: 'Touch Controls', checked: this.touchBar.visible, action: () => {
             this.touchBar.toggle();
         }},
+        { label: 'Full Screen', checked: !!document.fullscreenElement, action: () => {
+            TouchBar.toggleFullscreen();
+        }, disabled: !document.fullscreenEnabled },
         '-',
         { label: 'Show Guides', checked: cv.guides.visible, shortcut: 'Ctrl+;', action: () => {
             cv.guides.visible = !cv.guides.visible; cv.render();

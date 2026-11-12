@@ -78,6 +78,27 @@ export class TouchBar {
         this._penBtn = this._button('Pen', 'Pen mode: only the pen draws, one finger pans');
         this._penBtn.addEventListener('click', () => this.cv.setPenMode(!this.cv.penMode));
         c.appendChild(this._penBtn);
+
+        // Full screen works over plain http, unlike an installed web app, so
+        // it is the quick way to lose the browser chrome on a tablet.
+        if (document.fullscreenEnabled) {
+            c.appendChild(this._separator());
+            this._fsBtn = this._button('\u26F6', 'Toggle full screen');
+            this._fsBtn.classList.add('touch-btn-icon');
+            this._fsBtn.addEventListener('click', () => TouchBar.toggleFullscreen());
+            document.addEventListener('fullscreenchange', () => {
+                this._fsBtn.classList.toggle('active', !!document.fullscreenElement);
+            });
+            c.appendChild(this._fsBtn);
+        }
+    }
+
+    static toggleFullscreen() {
+        if (document.fullscreenElement) {
+            document.exitFullscreen();
+        } else if (document.fullscreenEnabled) {
+            document.documentElement.requestFullscreen().catch(() => {});
+        }
     }
 
     _button(text, title) {
