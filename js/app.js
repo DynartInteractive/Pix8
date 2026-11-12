@@ -10,6 +10,8 @@ import { PalettePanel } from './ui/PalettePanel.js';
 import { LayersPanel } from './ui/LayersPanel.js';
 import { TabBar } from './ui/TabBar.js';
 import { TouchBar } from './ui/TouchBar.js';
+import { writeSession, readSession, clearSession } from './util/autosave.js';
+import { savePix8, loadPix8 } from './util/io.js';
 import { FramePanel } from './ui/FramePanel.js';
 import Dialog from './ui/Dialog.js';
 import { INPUT_STYLE } from './ui/dialogHelpers.js';
@@ -245,6 +247,9 @@ class App {
         // Create first tab
         this._createTab('Untitled');
 
+        this._setupAutosave();
+        this._offerSessionRestore();
+
         // Mouse wheel on number inputs
         document.addEventListener('wheel', (e) => {
             if (e.target.tagName === 'INPUT' && e.target.type === 'number') {
@@ -260,6 +265,119 @@ class App {
                 input.dispatchEvent(new Event('change', { bubbles: true }));
             }
         }, { passive: false });
+    }
+
+    // ── Session autosave ────────────────────────────────────────────
+
+    _setupAutosave() {
+        this._autosaveTimer = null;
+        this._autosaveBusy = false;
+        this._autosaveAgain = false;
+        const schedule = () => this._scheduleAutosave();
+        for (const ev of ['layer-changed', 'palette-changed', 'document-changed',
+                          'animation-changed', 'frame-changed', 'tab-rename', 'tab-close']) {
+            this.bus.on(ev, schedule);
+        }
+        // Going to the background is the moment Android may kill the app,
+        // and a refresh or tab close is the browser equivalent: flush now.
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) this._autosaveNow();
+        });
+        window.addEventListener('pagehide', () => this._autosaveNow());
+    }
+
+    _scheduleAutosave() {
+        clearTimeout(this._autosaveTimer);
+        this._autosaveTimer = setTimeout(() => this._autosaveNow(), 2000);
+    }
+
+    // A single untouched Untitled tab is what a fresh launch looks like;
+    // storing it would only make the next launch ask about nothing.
+    _sessionIsPristine() {
+        if (this._tabs.length !== 1) return false;
+        const tab = this._tabs[0];
+        return tab.name === 'Untitled' && tab.undoStack.length === 0 &&
+            tab.redoStack.length === 0 && !tab.doc.animationEnabled;
+    }
+
+    async _autosaveNow() {
+        clearTimeout(this._autosaveTimer);
+        this._autosaveTimer = null;
+        if (this._autosaveBusy) { this._autosaveAgain = true; return; }
+        this._autosaveBusy = true;
+        try {
+            if (this._sessionIsPristine()) {
+                await clearSession();
+                return;
+            }
+            const tabs = [];
+            for (const tab of this._tabs) {
+                // tab.doc is always the live instance for the active tab too.
+                if (tab.doc.animationEnabled) tab.doc.saveCurrentFrame();
+                const blob = savePix8(tab.doc);
+                tabs.push({ name: tab.name, data: await blob.arrayBuffer() });
+            }
+            const activeIndex = Math.max(0, this._tabs.findIndex(t => t.id === this._activeTabId));
+            await writeSession({ savedAt: Date.now(), activeIndex, tabs });
+        } catch (err) {
+            console.warn('Autosave failed:', err);
+        } finally {
+            this._autosaveBusy = false;
+            if (this._autosaveAgain) {
+                this._autosaveAgain = false;
+                this._scheduleAutosave();
+            }
+        }
+    }
+
+    async _offerSessionRestore() {
+        const session = await readSession();
+        if (!session || !session.tabs || session.tabs.length === 0) return;
+
+        const names = session.tabs.map(t => t.name).join(', ');
+        const when = new Date(session.savedAt).toLocaleString();
+        const dlg = Dialog.create({
+            title: 'Restore previous session?',
+            width: '360px',
+            buttons: [
+                { label: 'Discard', onClick: () => { dlg.close(); clearSession(); } },
+                { label: 'Restore', primary: true, onClick: () => { dlg.close(); this._restoreSession(session); } },
+            ],
+            enterButton: 1,
+        });
+        const p = document.createElement('p');
+        p.style.cssText = 'margin: 0 0 8px; line-height: 1.5;';
+        p.textContent = `Pix8 was closed with ${session.tabs.length} document${session.tabs.length === 1 ? '' : 's'} open (${names}), autosaved ${when}.`;
+        dlg.body.appendChild(p);
+        const note = document.createElement('p');
+        note.style.cssText = 'margin: 0; color: var(--text-dim); font-size: 12px;';
+        note.textContent = 'Discard forgets the autosave. Closing this dialog keeps it for next time.';
+        dlg.body.appendChild(note);
+        dlg.show();
+    }
+
+    _restoreSession(session) {
+        const firstTab = this._tabs[0];
+        const firstPristine = this._sessionIsPristine();
+        let restored = 0;
+        let activeId = null;
+        session.tabs.forEach((saved, i) => {
+            try {
+                const doc = loadPix8(saved.data);
+                // _openInNewTab strips one extension; the stored name has none,
+                // so append one rather than lose part of a dotted name.
+                this._openInNewTab(saved.name + '.pix8', doc);
+                restored++;
+                if (i === session.activeIndex) activeId = this._activeTabId;
+            } catch (err) {
+                this._showToast(`Could not restore "${saved.name}": ${err.message}`, 3000);
+            }
+        });
+        if (restored === 0) return;
+        if (firstPristine && this._tabs.length > 1) this._closeTab(firstTab.id);
+        if (activeId !== null && activeId !== this._activeTabId) this._switchTab(activeId);
+        this._showToast(`Restored ${restored} document${restored === 1 ? '' : 's'}`);
+        this._scheduleAutosave();
     }
 
     // ── Tab Management ──────────────────────────────────────────────
