@@ -233,6 +233,9 @@ class App {
             if (this._freeTransformTool && this._freeTransformTool.isTransformActive) return;
             this.undoManager.redo();
         });
+        // Apply / Cancel buttons the touch bar shows during Free Transform
+        this.bus.on('transform-apply-request', () => this._endFreeTransform(true));
+        this.bus.on('transform-cancel-request', () => this._endFreeTransform(false));
 
         // Tab bar
         this.tabBar = new TabBar(this.bus);
@@ -416,10 +419,25 @@ class App {
         }
     }
 
+    /**
+     * Finish an in-progress Free Transform (apply or cancel). The toolbar is
+     * locked for the duration, and has to be unlocked first or the tool's
+     * switch back to the previous tool is ignored.
+     */
+    _endFreeTransform(apply) {
+        const ft = this._freeTransformTool;
+        if (!ft || !ft.isTransformActive) return;
+        this.toolbar.setLocked(false);
+        if (apply) ft.commit(); else ft.cancel();
+    }
+
     _saveTabState() {
         const tab = this._tabs.find(t => t.id === this._activeTabId);
         if (!tab) return;
         this._endNudge();
+        // A transform belongs to the outgoing document: apply it now, or the
+        // tool would stay active (and the toolbar locked) on the next one.
+        this._endFreeTransform(true);
         // Every document swap passes through here first, while all components
         // still point at the outgoing document.
         this.framePanel.stopPlayback();
@@ -514,7 +532,11 @@ class App {
         const idx = this._tabs.findIndex(t => t.id === id);
         if (idx < 0) return;
         // Closing skips _saveTabState, so playback has to be halted here
-        if (id === this._activeTabId) this.framePanel.stopPlayback();
+        if (id === this._activeTabId) {
+            this.framePanel.stopPlayback();
+            // The document is going away, so just drop the transform.
+            this._endFreeTransform(false);
+        }
         this._tabs.splice(idx, 1);
         if (id === this._activeTabId) {
             const newIdx = Math.min(idx, this._tabs.length - 1);

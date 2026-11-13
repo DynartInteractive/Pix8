@@ -5,6 +5,10 @@ export class LayersPanel {
         this.doc = doc;
         this.bus = bus;
         this.undoManager = undoManager;
+        // The touch bar's latched Shift/Ctrl/Alt: a tap carries no modifier
+        // keys, so Ctrl+click has to honour these too.
+        this._sticky = {};
+        bus.on('sticky-modifiers-changed', (mods) => { this._sticky = mods; });
 
         this.list = document.getElementById('layers-list');
         this._opacityRow = document.getElementById('layer-opacity-row');
@@ -236,7 +240,7 @@ export class LayersPanel {
                 this._lastClickTime = now;
                 this._lastClickIndex = i;
 
-                if (e.ctrlKey) {
+                if (e.ctrlKey || this._sticky.ctrlKey) {
                     // Can't deselect the active layer — it's always selected
                     if (i !== this.doc.activeLayerIndex) {
                         const sel = this.doc.selectedLayerIndices;

@@ -57,6 +57,22 @@
     color: var(--text-bright);
 }
 
+.touch-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.touch-group[hidden] {
+    display: none;
+}
+
+.touch-btn.touch-btn-apply {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--text-bright);
+}
+
 .touch-sep {
     width: 1px;
     height: 18px;

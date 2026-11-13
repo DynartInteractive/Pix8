@@ -20,6 +20,17 @@ export class TouchBar {
 
         this._build();
 
+        // Remembered even when the bar was hidden by choice: Free Transform
+        // brings it back on a touch device (see _build).
+        this._sawTouch = !!(window.matchMedia && window.matchMedia('(any-pointer: coarse)').matches);
+        const noteTouch = (e) => {
+            if (e.pointerType === 'touch' || e.pointerType === 'pen') {
+                this._sawTouch = true;
+                document.removeEventListener('pointerdown', noteTouch, true);
+            }
+        };
+        document.addEventListener('pointerdown', noteTouch, true);
+
         let stored = null;
         try { stored = localStorage.getItem(STORAGE_VISIBLE); } catch (e) { /* private mode */ }
         if (stored === 'yes') {
@@ -51,6 +62,24 @@ export class TouchBar {
     _build() {
         const c = this.container;
         c.innerHTML = '';
+
+        // Free Transform has no on-screen way to finish otherwise (Enter /
+        // Escape on a keyboard), so these appear while a transform is active.
+        this._transformGroup = document.createElement('span');
+        this._transformGroup.className = 'touch-group';
+        this._transformGroup.hidden = true;
+        const apply = this._button('✓ Apply', 'Apply transform (Enter)');
+        apply.classList.add('touch-btn-apply');
+        apply.addEventListener('click', () => this.bus.emit('transform-apply-request'));
+        const cancel = this._button('✕ Cancel', 'Cancel transform (Escape)');
+        cancel.addEventListener('click', () => this.bus.emit('transform-cancel-request'));
+        this._transformGroup.append(apply, cancel, this._separator());
+        c.appendChild(this._transformGroup);
+        this.bus.on('transform-active-changed', (on) => {
+            this._transformGroup.hidden = !on;
+            // Without the bar there would be no way out on a touch screen.
+            if (on && !this.visible && this._sawTouch) this.setVisible(true);
+        });
 
         for (const [key, label] of [['shiftKey', 'Shift'], ['ctrlKey', 'Ctrl'], ['altKey', 'Alt']]) {
             const btn = this._button(label, `Hold ${label} for the next strokes`);

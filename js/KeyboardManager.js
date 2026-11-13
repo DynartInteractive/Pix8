@@ -95,13 +95,11 @@ export function _setupKeyboardShortcuts(tools) {
             // Escape / Enter during Free Transform
             if (this._freeTransformTool && this._freeTransformTool.isTransformActive) {
                 if (e.key === 'Escape') {
-                    this.toolbar.setLocked(false);
-                    this._freeTransformTool.cancel();
+                    this._endFreeTransform(false);
                     return;
                 }
                 if (e.key === 'Enter') {
-                    this.toolbar.setLocked(false);
-                    this._freeTransformTool.commit();
+                    this._endFreeTransform(true);
                     return;
                 }
             }

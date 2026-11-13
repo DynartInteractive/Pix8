@@ -85,6 +85,7 @@ export class FreeTransformTool extends BaseTool {
 
         this._active = true;
         this.bus.emit('selection-changed');
+        this.bus.emit('transform-active-changed', true);
         return true;
     }
 
@@ -105,6 +106,7 @@ export class FreeTransformTool extends BaseTool {
         this._transform = null;
         this._sourceFloating = null;
         this.bus.emit('selection-changed');
+        this.bus.emit('transform-active-changed', false);
 
         // Restore previous tool
         this.bus.emit('switch-tool', this._previousToolName);
@@ -130,6 +132,7 @@ export class FreeTransformTool extends BaseTool {
         this._transform = null;
         this._sourceFloating = null;
         this.bus.emit('selection-changed');
+        this.bus.emit('transform-active-changed', false);
 
         this.bus.emit('switch-tool', this._previousToolName);
     }

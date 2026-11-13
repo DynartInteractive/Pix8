@@ -7,6 +7,9 @@ export class FramePanel {
         this.doc = doc;
         this.bus = bus;
         this.undoManager = undoManager;
+        // The touch bar's latched modifiers, so Shift+click works from a tap.
+        this._sticky = {};
+        bus.on('sticky-modifiers-changed', (mods) => { this._sticky = mods; });
         this.panel = document.getElementById('frame-panel');
         this._list = null;
         this._playing = false;
@@ -367,7 +370,7 @@ export class FramePanel {
 
             thumb.addEventListener('click', (e) => {
                 if (this._playing) return;
-                if (e.shiftKey) {
+                if (e.shiftKey || this._sticky.shiftKey) {
                     // Extend the range from the anchor; don't treat as a double-click
                     this._lastClickTime = 0;
                     const lo = Math.min(this._selAnchor, i);
