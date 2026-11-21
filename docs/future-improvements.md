@@ -86,6 +86,15 @@ indices are chosen, not searched for.
 
 ---
 
+## Command/action system
+
+Replace the current mixin-based module split with a central command registry.
+Menus and keyboard shortcuts would dispatch named commands (e.g. `'file:open'`,
+`'edit:copy'`, `'image:rotate-left'`), and the registry would route them to
+handler functions. This would decouple menus, shortcuts, and operations
+cleanly, making it easy to add new commands, rebind shortcuts, and support
+command palettes without cross-module dependencies.
+
 ## Carried over from the original list
 
 From `archive/future-improvements.md`, which predates most of what has since
